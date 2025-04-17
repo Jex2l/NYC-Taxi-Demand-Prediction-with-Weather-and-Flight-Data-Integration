@@ -23,7 +23,7 @@ Note: All team members will collaborate on system integration, testing, and docu
 
 The diagram below shows the end-to-end system architecture, including data sources, the ETL pipeline, the training cluster, model registry, and the serving and monitoring components: 
 
-![](Aspose.Words.a6aa4056-1f5f-4fc0-ab9f-20f24f4797ec.001.jpeg)
+![title](images/diagram.png)
 
 **Explanation:** TLC, weather, and flight data flow into an **ETL pipeline** which processes raw inputs into engineered features stored in a feature table. A **Ray cluster** trains the ML model and logs results to **MLflow**. The best model is packaged in a **FastAPI** service inside a Docker container for deployment. End-users or systems can send requests to a **prediction API endpoint**, and the service returns predicted taxi demand. A **monitoring module** collects logs and metrics from the running service  and  triggers  alerts  in  case  of  data  drift  or  performance  issues.  The  **CI/CD  pipeline** underpins everything: infrastructure is provisioned as code, model training can be scheduled, and new model versions are deployed via canary releases on the FastAPI service. 
 
