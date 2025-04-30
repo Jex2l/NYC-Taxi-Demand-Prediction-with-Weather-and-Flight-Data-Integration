@@ -1,0 +1,62 @@
+version: "3.9"
+
+services:
+  extract-data:
+    build: .
+    container_name: extract-data
+    volumes:
+      - ../data:/app/data
+    working_dir: /app/scripts
+    command: ["python", "download_data.py"]
+
+  transform-taxi:
+    build: .
+    container_name: transform-taxi
+    volumes:
+      - ../data:/app/data
+    working_dir: /app/scripts
+    depends_on:
+      - extract-data
+    command: ["python", "transform_taxi.py"]
+
+  transform-flight:
+    build: .
+    container_name: transform-flight
+    volumes:
+      - ../data:/app/data
+    working_dir: /app/scripts
+    depends_on:
+      - extract-data
+    command: ["python", "transform_flight.py"]
+
+  transform-weather:
+    build: .
+    container_name: transform-weather
+    volumes:
+      - ../data:/app/data
+    working_dir: /app/scripts
+    depends_on:
+      - extract-data
+    command: ["python", "transform_weather.py"]
+
+  merge-features:
+    build: .
+    container_name: merge-features
+    volumes:
+      - ../data:/app/data
+    working_dir: /app/scripts
+    depends_on:
+      - transform-taxi
+      - transform-flight
+      - transform-weather
+    command: ["python", "merge_all_features.py"]
+
+  load-data:
+    build: .
+    container_name: load-data
+    volumes:
+      - ../data:/app/data
+    working_dir: /app/scripts
+    depends_on:
+      - merge-features
+    command: ["python", "upload_to_object_store.py"]

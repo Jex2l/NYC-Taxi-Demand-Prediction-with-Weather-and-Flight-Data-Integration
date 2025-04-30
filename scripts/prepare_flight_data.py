@@ -1,0 +1,102 @@
+# etl_scripts/preprocess_flight.py
+
+import pandas as pd
+import os
+
+def parse_time(t):
+    """Convert HHMM integer to timedelta."""
+    t = str(int(t)).zfill(4)
+    return pd.to_timedelta(f"{t[:2]}:{t[2:]}:00")
+
+def preprocess_flight_data(flight_df):
+    nyc_airports = ['EWR', 'JFK', 'LGA']
+
+    # Convert dates and times
+    flight_df['FL_DATE'] = pd.to_datetime(flight_df['FL_DATE'])
+    flight_df['dep_time'] = flight_df['FL_DATE'] + flight_df['CRS_DEP_TIME'].apply(parse_time)
+    flight_df['arr_time'] = flight_df['FL_DATE'] + flight_df['CRS_ARR_TIME'].apply(parse_time)
+
+    # Round to 15-min intervals
+    flight_df['dep_interval'] = flight_df['dep_time'].dt.floor('15min')
+    flight_df['arr_interval'] = flight_df['arr_time'].dt.floor('15min')
+
+    # Filter for NYC airports
+    departures = flight_df[flight_df['ORIGIN'].isin(nyc_airports)][['dep_interval', 'ORIGIN']]
+    arrivals = flight_df[flight_df['DEST'].isin(nyc_airports)][['arr_interval', 'DEST']]
+
+    # Create base grid
+    all_times = pd.date_range(
+        start=flight_df['FL_DATE'].min(),
+        end=flight_df['FL_DATE'].max() + pd.Timedelta('2h'),
+        freq='15min'
+    )
+    base = pd.MultiIndex.from_product([all_times, nyc_airports], names=['interval', 'airport']).to_frame(index=False)
+
+    # Aggregate departures and arrivals
+    dep_counts = departures.groupby(['dep_interval', 'ORIGIN']).size().reset_index(name='dep_now')
+    arr_counts = arrivals.groupby(['arr_interval', 'DEST']).size().reset_index(name='arr_now')
+    dep_counts.columns = ['interval', 'airport', 'dep_now']
+    arr_counts.columns = ['interval', 'airport', 'arr_now']
+
+    flight_features = base.merge(dep_counts, on=['interval', 'airport'], how='left') \
+                          .merge(arr_counts, on=['interval', 'airport'], how='left') \
+                          .fillna(0)
+
+    # Create future window features
+    for minutes in [30, 60, 90, 120]:
+        delta = pd.Timedelta(minutes=minutes)
+
+        temp = flight_features[['interval', 'airport', 'dep_now']].copy()
+        temp['interval'] = temp['interval'] - delta
+        temp.columns = ['interval', 'airport', f'dep_next_{minutes}']
+        flight_features = flight_features.merge(temp, on=['interval', 'airport'], how='left')
+
+        temp = flight_features[['interval', 'airport', 'arr_now']].copy()
+        temp['interval'] = temp['interval'] - delta
+        temp.columns = ['interval', 'airport', f'arr_next_{minutes}']
+        flight_features = flight_features.merge(temp, on=['interval', 'airport'], how='left')
+
+    flight_features.fillna(0, inplace=True)
+
+    # Extract keys
+    flight_features['year'] = flight_features['interval'].dt.year
+    flight_features['month'] = flight_features['interval'].dt.month
+    flight_features['day'] = flight_features['interval'].dt.day
+    flight_features['hour'] = flight_features['interval'].dt.hour
+    flight_features['minute'] = flight_features['interval'].dt.minute
+    flight_features['dow'] = flight_features['interval'].dt.dayofweek
+
+    # Map airport to location ID
+    airport_to_locid = {'EWR': 1, 'JFK': 132, 'LGA': 138}
+    flight_features['location_id'] = flight_features['airport'].map(airport_to_locid)
+
+    # Final columns
+    keep_cols = [
+        'year', 'month', 'day', 'hour', 'minute', 'dow', 'location_id',
+        'dep_now', 'dep_next_30', 'dep_next_60', 'dep_next_90', 'dep_next_120',
+        'arr_now', 'arr_next_30', 'arr_next_60', 'arr_next_90', 'arr_next_120'
+    ]
+    return flight_features[keep_cols]
+
+def run():
+    input_path = os.path.join("data", "flight", "all_flights.csv")
+    output_path = os.path.join("data", "flight", "flight_features_full.csv")
+
+    df = pd.read_csv(input_path, low_memory=False)
+    df.rename(columns={
+        'FlightDate': 'FL_DATE',
+        'CRSDepTime': 'CRS_DEP_TIME',
+        'CRSArrTime': 'CRS_ARR_TIME',
+        'Origin': 'ORIGIN',
+        'Dest': 'DEST'
+    }, inplace=True)
+
+    required_cols = ['FL_DATE', 'CRS_DEP_TIME', 'CRS_ARR_TIME', 'ORIGIN', 'DEST']
+    if not all(col in df.columns for col in required_cols):
+        raise ValueError(f"Missing columns! Found: {df.columns.tolist()}")
+    result = preprocess_flight_data(df)
+    result.to_csv(output_path, index=False)
+    print(f"Flight features saved to {output_path}")
+
+if __name__ == "__main__":
+    run()
