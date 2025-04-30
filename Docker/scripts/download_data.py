@@ -13,8 +13,8 @@ from dateutil.relativedelta import relativedelta
 
 
 # ========== CONFIG ========== #
-years = list(range(2009, 2015))
-months = list(range(1, 3))
+years = list(range(2009, 2025))
+months = list(range(1, 13))
 
 # Base URLs
 TAXI_YELLOW_URL = "https://d37ci6vzurychx.cloudfront.net/trip-data/yellow_tripdata_{ym}.parquet"
@@ -33,13 +33,14 @@ os.makedirs(weather_dir, exist_ok=True)
 # ========== 1. TAXI DATA ========== #
 taxi_dfs = []
 
-for year in tqdm(years,desc="Taxi Years"):
-    for month in tqdm(months,desc=f"Months for {year}", leave=False):
+for year in tqdm(years, desc="Taxi Years"):
+    for month in tqdm(months, desc=f"Months for {year}", leave=False):
         ym = f"{year}-{month:02d}"
 
         for taxi_type in ["yellow", "green"]:
             if taxi_type == "green" and (year < 2013 or (year == 2013 and month < 8)):
                 continue
+
             url = TAXI_YELLOW_URL.format(ym=ym) if taxi_type == "yellow" else TAXI_GREEN_URL.format(ym=ym)
             fname = os.path.join(taxi_dir, f"{taxi_type}_{ym}.parquet")
 
@@ -53,44 +54,66 @@ for year in tqdm(years,desc="Taxi Years"):
                     print(f"Failed download {fname}: {e}")
 
             try:
-                if taxi_type == "yellow":
-                    df = pd.read_parquet(fname, columns=['tpep_pickup_datetime', 'tpep_dropoff_datetime', 'PULocationID', 'DOLocationID'])
-                    df = df.rename(columns={
-                        'tpep_pickup_datetime': 'pickup_datetime',
-                        'tpep_dropoff_datetime': 'dropoff_datetime',
-                        'PULocationID': 'pickup_location_id',
-                        'DOLocationID': 'dropoff_location_id'
-                    })
-                else:
-                    df = pd.read_parquet(fname, columns=['lpep_pickup_datetime', 'lpep_dropoff_datetime', 'PULocationID', 'DOLocationID'])
-                    df = df.rename(columns={
-                        'lpep_pickup_datetime': 'pickup_datetime',
-                        'lpep_dropoff_datetime': 'dropoff_datetime',
-                        'PULocationID': 'pickup_location_id',
-                        'DOLocationID': 'dropoff_location_id'
-                    })
+                df = pd.read_parquet(fname)
+                df.columns = [col.lower() for col in df.columns]
 
-                df = df[['pickup_datetime', 'dropoff_datetime', 'pickup_location_id', 'dropoff_location_id']]
+                if taxi_type == "yellow":
+                    if 'tpep_pickup_datetime' in df.columns:
+                        df = df.rename(columns={
+                            'tpep_pickup_datetime': 'pickup_datetime',
+                            'tpep_dropoff_datetime': 'dropoff_datetime',
+                            'pulocationid': 'pickup_location_id',
+                            'dolocationid': 'dropoff_location_id'
+                        })
+                    elif 'trip_pickup_datetime' in df.columns:
+                        df = df.rename(columns={
+                            'trip_pickup_datetime': 'pickup_datetime',
+                            'trip_dropoff_datetime': 'dropoff_datetime'
+                        })
+                    else:
+                        raise ValueError(f"{fname} is missing pickup/dropoff columns (yellow)")
+
+                else:  # green taxi
+                    if 'lpep_pickup_datetime' in df.columns:
+                        df = df.rename(columns={
+                            'lpep_pickup_datetime': 'pickup_datetime',
+                            'lpep_dropoff_datetime': 'dropoff_datetime',
+                            'pulocationid': 'pickup_location_id',
+                            'dolocationid': 'dropoff_location_id'
+                        })
+                    else:
+                        raise ValueError(f"{fname} is missing pickup/dropoff columns (green)")
+
+                # ✅ Enforce required columns
+                required_cols = ['pickup_datetime', 'dropoff_datetime']
+                for col in required_cols:
+                    if col not in df.columns:
+                        raise ValueError(f"{fname} is missing required column: {col}")
+
+                optional_cols = ['pickup_location_id', 'dropoff_location_id']
+                final_cols = required_cols + [col for col in optional_cols if col in df.columns]
+
+                df = df[final_cols]
                 df.dropna(inplace=True)
 
                 taxi_dfs.append(df)
-                print(f"Processed {fname}")
+                print(f"✅ Processed {fname}")
 
             except Exception as e:
-                print(f"Failed to process {fname}: {e}")
+                print(f"❌ Failed to process {fname}: {e}")
+                raise  # fail intentionally
 
 if taxi_dfs:
     merged_taxi = pd.concat(taxi_dfs, ignore_index=True)
     output_file = os.path.join(taxi_dir, "all_taxi.csv")
     merged_taxi.to_csv(output_file, index=False)
-    print(f"Saved merged {output_file}")
+    print(f"✅ Saved merged {output_file}")
 
     # 🧹 Cleanup
     for f in os.listdir(taxi_dir):
         if f.endswith(".parquet"):
             os.remove(os.path.join(taxi_dir, f))
     print("🧹 Deleted individual taxi parquet files")
-
 # ========== 2. FLIGHT DATA ========== #
 import time
 from urllib3.util.retry import Retry
