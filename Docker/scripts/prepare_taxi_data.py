@@ -4,7 +4,7 @@ import os
 def prepare_taxi_data(path, output_path):
     airport_ids = [1, 132, 138]
 
-    taxi = pd.read_csv(path)
+    taxi = pd.read_csv(path,low_memory=False)
     taxi.dropna(subset=['pickup_datetime', 'dropoff_datetime',
                         'pickup_location_id', 'dropoff_location_id'], inplace=True)
 

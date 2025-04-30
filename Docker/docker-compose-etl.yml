@@ -17,7 +17,7 @@ services:
     working_dir: /app/scripts
     depends_on:
       - extract-data
-    command: ["python3", "transform_taxi.py"]
+    command: ["python3", "prepare_taxi_data.py"]
 
   transform-flight:
     build: .
@@ -27,7 +27,7 @@ services:
     working_dir: /app/scripts
     depends_on:
       - extract-data
-    command: ["python3", "transform_flight.py"]
+    command: ["python3", "prepare_flight_data.py"]
 
   transform-weather:
     build: .
@@ -37,7 +37,7 @@ services:
     working_dir: /app/scripts
     depends_on:
       - extract-data
-    command: ["python3", "transform_weather.py"]
+    command: ["python3", "prepare_weather_data.py"]
 
   merge-features:
     build: .
