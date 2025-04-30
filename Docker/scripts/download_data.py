@@ -31,7 +31,8 @@ os.makedirs(flight_dir, exist_ok=True)
 os.makedirs(weather_dir, exist_ok=True)
 
 # ========== 1. TAXI DATA ========== #
-taxi_dfs = []
+output_file = os.path.join(taxi_dir, "all_taxi.csv")
+header_written = False
 
 for year in tqdm(years, desc="Taxi Years"):
     for month in tqdm(months, desc=f"Months for {year}", leave=False):
@@ -96,45 +97,41 @@ for year in tqdm(years, desc="Taxi Years"):
                 df = df[final_cols]
                 df.dropna(inplace=True)
 
-                taxi_dfs.append(df)
+                df.to_csv(output_file, mode='a', header=not header_written, index=False)
+                header_written = True
+
                 print(f"✅ Processed {fname}")
 
             except Exception as e:
                 print(f"❌ Failed to process {fname}: {e}")
                 raise  # fail intentionally
 
-if taxi_dfs:
-    merged_taxi = pd.concat(taxi_dfs, ignore_index=True)
-    output_file = os.path.join(taxi_dir, "all_taxi.csv")
-    merged_taxi.to_csv(output_file, index=False)
-    print(f"✅ Saved merged {output_file}")
-
     # 🧹 Cleanup
-    for f in os.listdir(taxi_dir):
-        if f.endswith(".parquet"):
-            os.remove(os.path.join(taxi_dir, f))
-    print("🧹 Deleted individual taxi parquet files")
+for f in os.listdir(taxi_dir):
+    if f.endswith(".parquet"):
+        os.remove(os.path.join(taxi_dir, f))
+print("🧹 Deleted individual taxi parquet files")
 # ========== 2. FLIGHT DATA ========== #
 import time
 from urllib3.util.retry import Retry
 from requests.adapters import HTTPAdapter
 
-# Setup session with retry logic
 session = requests.Session()
 retries = Retry(total=3, backoff_factor=10, status_forcelist=[429, 500, 502, 503, 504])
 session.mount("https://", HTTPAdapter(max_retries=retries))
 
-flight_dfs = []
+output_file = os.path.join(flight_dir, "all_flights.csv")
+header_written = False
 
-for year in tqdm(years,desc="Flight Years"):
-    for month in tqdm(months,desc=f"Months for {year}", leave=False):
+for year in tqdm(years, desc="Flight Years"):
+    for month in tqdm(months, desc=f"Months for {year}", leave=False):
         ym = f"{year}_{month:02d}"
         zip_url = BTS_FLIGHT_URL.format(year=year, month=month)
         zip_path = os.path.join(flight_dir, f"flight_{ym}.zip")
 
         if not os.path.exists(zip_path):
             try:
-                r = session.get(zip_url, timeout=(10, 120))  # (connect_timeout, read_timeout)
+                r = session.get(zip_url, timeout=(10, 120))
                 r.raise_for_status()
                 with open(zip_path, 'wb') as f:
                     f.write(r.content)
@@ -151,33 +148,22 @@ for year in tqdm(years,desc="Flight Years"):
             print(f"Failed extracting {zip_path}: {e}")
             continue
 
-        time.sleep(10)  # prevent hammering BTS server
+        time.sleep(10)
 
-# Read all extracted flight CSVs
-csvs = glob.glob(os.path.join(flight_dir, "*.csv"))
-for csv_file in csvs:
-    try:
-        df = pd.read_csv(csv_file, low_memory=False)
-        flight_dfs.append(df)
-    except Exception as e:
-        print(f"Failed to read {csv_file}: {e}")
+        for extracted_file in glob.glob(os.path.join(flight_dir, "*.csv")):
+            try:
+                df = pd.read_csv(extracted_file, low_memory=False)
+                df.to_csv(output_file, mode='a', header=not header_written, index=False)
+                header_written = True
+            except Exception as e:
+                print(f"Failed to read {extracted_file}: {e}")
 
-if flight_dfs:
-    merged_flights = pd.concat(flight_dfs, ignore_index=True)
-    output_file = os.path.join(flight_dir, "all_flights.csv")
-    merged_flights.to_csv(output_file, index=False)
-    print(f"Saved merged {output_file}")
-
-    # Clean up
-    for f in os.listdir(flight_dir):
-        if f.endswith(".zip") or (f.endswith(".csv") and f != "all_flights.csv"):
-            os.remove(os.path.join(flight_dir, f))
-    print("🧹 Deleted individual flight files")
-
+        # Clean individual flight files after appending
+        for f in os.listdir(flight_dir):
+            if f.endswith(".zip") or (f.endswith(".csv") and f != "all_flights.csv"):
+                os.remove(os.path.join(flight_dir, f))
+print("🧹 Deleted individual flight files")
 # ========== 3. WEATHER DATA ========== #
-weather_dir = os.path.join("data", "weather")
-os.makedirs(weather_dir, exist_ok=True)
-
 asos_configs = [
     {"stations": ["JFK", "LGA"], "network": "NY_ASOS"},
     {"stations": ["EWR"], "network": "NJ_ASOS"}
@@ -192,11 +178,13 @@ ASOS_URL_TEMPLATE = (
 )
 
 weather_files = []
+output_file = os.path.join(weather_dir, "all_weather.csv")
+header_written = False
 
-for year in tqdm(years,desc="Weather Years"):
-    for month in tqdm(months,desc=f"Months for {year}", leave=False):
+for year in tqdm(years, desc="Weather Years"):
+    for month in tqdm(months, desc=f"Months for {year}", leave=False):
         startts = datetime(year, month, 1)
-        endts = startts + relativedelta(months=1)  
+        endts = startts + relativedelta(months=1)
 
         for config in asos_configs:
             for station in config["stations"]:
@@ -228,21 +216,15 @@ for year in tqdm(years,desc="Weather Years"):
                 else:
                     weather_files.append(fpath)
 
-# Merge and save
-weather_dfs = []
+# Append weather data to final CSV
 for f in weather_files:
     try:
         df = pd.read_csv(f, skiprows=5)
-        weather_dfs.append(df)
+        df.to_csv(output_file, mode='a', header=not header_written, index=False)
+        header_written = True
     except Exception as e:
         print(f"Could not read {f}: {e}")
 
-if weather_dfs:
-    merged_weather = pd.concat(weather_dfs, ignore_index=True)
-    output_file = os.path.join(weather_dir, "all_weather.csv")
-    merged_weather.to_csv(output_file, index=False)
-    print(f"Saved merged weather to {output_file}")
-
-    for f in weather_files:
-        os.remove(f)
-    print("🧹 Cleaned up individual weather files")
+for f in weather_files:
+    os.remove(f)
+print("🧹 Cleaned up individual weather files")
