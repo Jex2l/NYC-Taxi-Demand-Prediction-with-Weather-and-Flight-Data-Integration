@@ -32,7 +32,7 @@ os.makedirs(flight_dir, exist_ok=True)
 os.makedirs(weather_dir, exist_ok=True)
 
 # ========== 1. TAXI DATA ========== #
-output_file = os.path.join(taxi_dir, "all_taxi.csv")
+output_file = os.path.join(taxi_dir, f"all_taxi_{year}_{month:02d}.csv")
 header_written = False
 ym = f"{year}-{month:02d}"
 
@@ -117,7 +117,7 @@ session = requests.Session()
 retries = Retry(total=3, backoff_factor=10, status_forcelist=[429, 500, 502, 503, 504])
 session.mount("https://", HTTPAdapter(max_retries=retries))
 
-output_file = os.path.join(flight_dir, "all_flights.csv")
+output_file = os.path.join(flight_dir, f"all_flights_{year}_{month:02d}.csv")
 header_written = False
 ym = f"{year}_{month:02d}"
 zip_url = BTS_FLIGHT_URL.format(year=year, month=month)
@@ -152,7 +152,7 @@ for extracted_file in glob.glob(os.path.join(flight_dir, "*.csv")):
 
 # Clean individual flight files after appending
 for f in os.listdir(flight_dir):
-    if f.endswith(".zip") or (f.endswith(".csv") and f != "all_flights.csv"):
+    if f.endswith(".zip") or (f.endswith(".csv") and f != f"all_flights_{year}_{month:02d}.csv"):
         os.remove(os.path.join(flight_dir, f))
 print("🧹 Deleted individual flight files")
 # ========== 3. WEATHER DATA ========== #
@@ -170,7 +170,7 @@ ASOS_URL_TEMPLATE = (
 )
 
 weather_files = []
-output_file = os.path.join(weather_dir, "all_weather.csv")
+output_file = os.path.join(weather_dir, f"all_weather_{year}_{month:02d}.csv")
 header_written = False
 
 

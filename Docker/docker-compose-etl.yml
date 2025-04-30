@@ -5,7 +5,7 @@ services:
     build: .
     container_name: extract-data
     volumes:
-      - ../data:/app/data
+      - ./data:/app/data
     working_dir: /app/scripts
     command: ["python3", "download_data.py"]
 
@@ -13,7 +13,7 @@ services:
     build: .
     container_name: transform-taxi
     volumes:
-      - ../data:/app/data
+      - ./data:/app/data
     working_dir: /app/scripts
     depends_on:
       - extract-data
@@ -23,7 +23,7 @@ services:
     build: .
     container_name: transform-flight
     volumes:
-      - ../data:/app/data
+      - ./data:/app/data
     working_dir: /app/scripts
     depends_on:
       - extract-data
@@ -33,7 +33,7 @@ services:
     build: .
     container_name: transform-weather
     volumes:
-      - ../data:/app/data
+      - ./data:/app/data
     working_dir: /app/scripts
     depends_on:
       - extract-data
@@ -43,7 +43,7 @@ services:
     build: .
     container_name: merge-features
     volumes:
-      - ../data:/app/data
+      - ./data:/app/data
     working_dir: /app/scripts
     depends_on:
       - transform-taxi
@@ -55,7 +55,7 @@ services:
     build: .
     container_name: load-data
     volumes:
-      - ../data:/app/data
+      - ./data:/app/data
     working_dir: /app/scripts
     depends_on:
       - merge-features

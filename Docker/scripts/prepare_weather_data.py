@@ -1,6 +1,6 @@
 import pandas as pd
 import os
-
+import sys
 station_to_locationid = {
     'EWR': 1,
     'JFK': 132,
@@ -55,9 +55,12 @@ def prepare_weather_data(path, output_path):
         final.loc[:, col] = final[col].round(2)
 
     final.to_csv(output_path, index=False)
-    print(f"Weather features saved to {output_path} ({len(final)} rows)")
+    print("Weather features saved to ", output_path)
 
 if __name__ == "__main__":
-    weather_path = os.path.join("data", "weather", "all_weather.csv")
-    output_path = os.path.join("data", "weather", "weather_features_full.csv")
+    year = int(sys.argv[1])
+    month = int(sys.argv[2])
+
+    weather_path = os.path.join("data", "weather", f"all_weather_{year}_{month:02d}.csv")
+    output_path = os.path.join("data", "weather", f"weather_features_{year}_{month:02d}.csv")
     prepare_weather_data(weather_path, output_path)

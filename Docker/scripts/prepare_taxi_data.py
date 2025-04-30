@@ -1,6 +1,6 @@
 import pandas as pd
 import os
-
+import sys
 def prepare_taxi_data(path, output_path):
     airport_ids = [1, 132, 138]
 
@@ -58,8 +58,9 @@ def prepare_taxi_data(path, output_path):
 
     taxi_volume.to_csv(output_path, index=False)
     print(f"Taxi features saved to {output_path}")
-
 if __name__ == "__main__":
-    taxi_path = os.path.join("data", "taxi", "all_taxi.csv")
-    output_path = os.path.join("data", "taxi", "taxi_features_full.csv")
+    year = int(sys.argv[1])
+    month = int(sys.argv[2])
+    taxi_path = os.path.join("data", "taxi", f"all_taxi_{year}_{month:02d}.csv")
+    output_path = os.path.join("data", "taxi", f"taxi_features_{year}_{month:02d}.csv")
     prepare_taxi_data(taxi_path, output_path)

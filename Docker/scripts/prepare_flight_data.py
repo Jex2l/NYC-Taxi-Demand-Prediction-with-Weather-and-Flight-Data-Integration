@@ -1,10 +1,9 @@
-# etl_scripts/preprocess_flight.py
-
 import pandas as pd
 import os
+import sys
+from datetime import datetime
 
 def parse_time(t):
-    """Convert HHMM integer to timedelta."""
     t = str(int(t)).zfill(4)
     return pd.to_timedelta(f"{t[:2]}:{t[2:]}:00")
 
@@ -77,10 +76,12 @@ def preprocess_flight_data(flight_df):
         'arr_now', 'arr_next_30', 'arr_next_60', 'arr_next_90', 'arr_next_120'
     ]
     return flight_features[keep_cols]
+if __name__ == "__main__":
+    year = int(sys.argv[1])
+    month = int(sys.argv[2])
 
-def run():
-    input_path = os.path.join("data", "flight", "all_flights.csv")
-    output_path = os.path.join("data", "flight", "flight_features_full.csv")
+    input_path = os.path.join("data", "flight", f"all_flights_{year}_{month:02d}.csv")
+    output_path = os.path.join("data", "flight", f"flight_features_{year}_{month:02d}.csv")
 
     df = pd.read_csv(input_path, low_memory=False)
     df.rename(columns={
@@ -91,12 +92,13 @@ def run():
         'Dest': 'DEST'
     }, inplace=True)
 
-    required_cols = ['FL_DATE', 'CRS_DEP_TIME', 'CRS_ARR_TIME', 'ORIGIN', 'DEST']
-    if not all(col in df.columns for col in required_cols):
-        raise ValueError(f"Missing columns! Found: {df.columns.tolist()}")
+    df['FL_DATE'] = pd.to_datetime(df['FL_DATE'], errors='coerce')
+    df = df[(df['FL_DATE'].dt.year == year) & (df['FL_DATE'].dt.month == month)]
+
+    if df.empty:
+        print(f"❌ No data for {year}-{month:02d} in flight input.")
+        sys.exit(1)
+
     result = preprocess_flight_data(df)
     result.to_csv(output_path, index=False)
-    print(f"Flight features saved to {output_path}")
-
-if __name__ == "__main__":
-    run()
+    print(f"✅ Flight features saved to {output_path} ({len(result)} rows)")
