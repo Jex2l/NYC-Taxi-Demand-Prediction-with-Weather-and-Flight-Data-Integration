@@ -18,6 +18,7 @@ if [ $# -eq 2 ]; then
   # Run for a single month
   run_etl "$1" "$2"
 else
+
   # Run from Jan 2015 to Dec 2024
   for year in {2015..2024}; do
     for month in {1..12}; do
