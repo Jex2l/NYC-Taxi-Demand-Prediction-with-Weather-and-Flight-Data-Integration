@@ -56,6 +56,7 @@ services:
     container_name: load-data
     volumes:
       - ../data:/app/data
+      - /home/cc/.config/rclone:/root/.config/rclone:ro
     working_dir: /app/scripts
     depends_on:
       - merge-features
