@@ -79,9 +79,9 @@ def preprocess_flight_data(flight_df):
 if __name__ == "__main__":
     year = int(sys.argv[1])
     month = int(sys.argv[2])
-
-    input_path = os.path.join("data", "flight", f"all_flights_{year}_{month:02d}.csv")
-    output_path = os.path.join("data", "flight", f"flight_features_{year}_{month:02d}.csv")
+    data_root = "/app/data"
+    input_path = os.path.join(data_root , "flight", f"all_flights_{year}_{month:02d}.csv")
+    output_path = os.path.join(data_root , "flight", f"flight_features_{year}_{month:02d}.csv")
 
     df = pd.read_csv(input_path, low_memory=False)
     df.rename(columns={

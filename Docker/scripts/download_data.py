@@ -27,9 +27,10 @@ TAXI_GREEN_URL = "https://d37ci6vzurychx.cloudfront.net/trip-data/green_tripdata
 BTS_FLIGHT_URL = "https://transtats.bts.gov/PREZIP/On_Time_Reporting_Carrier_On_Time_Performance_1987_present_{year}_{month}.zip"
 
 # ========== PATHS ========== #
-taxi_dir = os.path.join("data", "taxi")
-flight_dir = os.path.join("data", "flight")
-weather_dir = os.path.join("data", "weather")
+data_root = "/app/data"
+taxi_dir = os.path.join(data_root, "taxi")
+flight_dir = os.path.join(data_root, "flight")
+weather_dir = os.path.join(data_root, "weather")
 
 os.makedirs(taxi_dir, exist_ok=True)
 os.makedirs(flight_dir, exist_ok=True)

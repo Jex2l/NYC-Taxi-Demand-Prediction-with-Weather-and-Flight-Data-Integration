@@ -8,7 +8,8 @@ month = int(sys.argv[2])
 ym_str = f"{year}_{month:02d}"
 
 # ------------------ Paths ------------------
-local_path = os.path.join("data", "output", f"final_features_{ym_str}.csv")
+data_root  = "/app/data"
+local_path = os.path.join(data_root, "output", f"final_features_{ym_str}.csv")
 
 if not os.path.exists(local_path):
     print(f"File not found: {local_path}")

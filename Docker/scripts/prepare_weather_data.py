@@ -60,7 +60,7 @@ def prepare_weather_data(path, output_path):
 if __name__ == "__main__":
     year = int(sys.argv[1])
     month = int(sys.argv[2])
-
-    weather_path = os.path.join("data", "weather", f"all_weather_{year}_{month:02d}.csv")
-    output_path = os.path.join("data", "weather", f"weather_features_{year}_{month:02d}.csv")
+    data_root= "/app/data"
+    weather_path = os.path.join(data_root, "weather", f"all_weather_{year}_{month:02d}.csv")
+    output_path = os.path.join(data_root, "weather", f"weather_features_{year}_{month:02d}.csv")
     prepare_weather_data(weather_path, output_path)

@@ -61,6 +61,7 @@ def prepare_taxi_data(path, output_path):
 if __name__ == "__main__":
     year = int(sys.argv[1])
     month = int(sys.argv[2])
-    taxi_path = os.path.join("data", "taxi", f"all_taxi_{year}_{month:02d}.csv")
-    output_path = os.path.join("data", "taxi", f"taxi_features_{year}_{month:02d}.csv")
+    data_root = "/app/data"
+    taxi_path = os.path.join(data_root , "taxi", f"all_taxi_{year}_{month:02d}.csv")
+    output_path = os.path.join(data_root , "taxi", f"taxi_features_{year}_{month:02d}.csv")
     prepare_taxi_data(taxi_path, output_path)

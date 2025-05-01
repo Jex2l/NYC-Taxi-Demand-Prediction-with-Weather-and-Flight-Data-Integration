@@ -26,10 +26,10 @@ if __name__ == "__main__":
     year = int(sys.argv[1])
     month = int(sys.argv[2])
     ym = f"{year}_{month:02d}"
-
-    taxi_path = os.path.join("data", "taxi", f"taxi_features_{ym}.csv")
-    flight_path = os.path.join("data", "flight", f"flight_features_{ym}.csv")
-    weather_path = os.path.join("data", "weather", f"weather_features_{ym}.csv")
-    output_path = os.path.join("data", "output", f"final_features_{ym}.csv")
+    data_root = "/app/data"
+    taxi_path = os.path.join(data_root, "taxi", f"taxi_features_{ym}.csv")
+    flight_path = os.path.join(data_root, "flight", f"flight_features_{ym}.csv")
+    weather_path = os.path.join(data_root, "weather", f"weather_features_{ym}.csv")
+    output_path = os.path.join(data_root, "output", f"final_features_{ym}.csv")
 
     merge_all(taxi_path, flight_path, weather_path, output_path)
