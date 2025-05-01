@@ -20,7 +20,7 @@ def merge_all(taxi, flight, weather, output_path):
     ).fillna(0)
 
     final.to_csv(output_path, index=False)
-    print(f"Final merged features saved to {output_path}")
+    print(f"✅ Final merged features saved to {output_path} ({len(final):,} rows)")
 
 if __name__ == "__main__":
     year = int(sys.argv[1])
