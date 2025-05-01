@@ -102,6 +102,7 @@ print("🧹 Deleted individual taxi parquet files")
 print(f"✅ Created: {output_file}")
 
 # ========== 2. FLIGHT DATA ========== #
+# ========== 2. FLIGHT DATA ========== #
 output_file = os.path.join(flight_dir, f"all_flights_{year}_{month:02d}.csv")
 header_written = False
 zip_url = BTS_FLIGHT_URL.format(year=year, month=month)
@@ -120,17 +121,24 @@ if not os.path.exists(zip_path):
         print(f"Downloaded {zip_path}")
     except Exception as e:
         print(f"Failed flight zip {ym_us}: {e}")
-
+for f in os.listdir(flight_dir):
+    if f.endswith(".csv") and f != f"all_flights_{year}_{month:02d}.csv":
+        os.remove(os.path.join(flight_dir, f))
 try:
     with zipfile.ZipFile(zip_path, 'r') as zip_ref:
         zip_ref.extractall(flight_dir)
     print(f"Extracted {zip_path}")
 except Exception as e:
     print(f"Failed extracting {zip_path}: {e}")
-
-time.sleep(10)
-
-for extracted_file in glob.glob(os.path.join(flight_dir, "*.csv")):
+time.sleep(3)
+try:
+    with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+        extracted_files = zip_ref.namelist()
+except Exception as e:
+    print(f"Failed to get extracted file names: {e}")
+    extracted_files = []
+for extracted_name in extracted_files:
+    extracted_file = os.path.join(flight_dir, extracted_name)
     try:
         df = pd.read_csv(extracted_file, low_memory=False, on_bad_lines='skip')
         if df.empty:
@@ -140,7 +148,6 @@ for extracted_file in glob.glob(os.path.join(flight_dir, "*.csv")):
         header_written = True
     except Exception as e:
         print(f"Failed to read {extracted_file}: {e}")
-
 for f in os.listdir(flight_dir):
     if f.endswith(".zip") or (f.endswith(".csv") and f != f"all_flights_{year}_{month:02d}.csv"):
         os.remove(os.path.join(flight_dir, f))
