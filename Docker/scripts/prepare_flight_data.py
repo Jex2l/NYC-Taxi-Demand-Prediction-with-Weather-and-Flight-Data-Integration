@@ -83,7 +83,7 @@ if __name__ == "__main__":
     input_path = os.path.join(data_root , "flight", f"all_flights_{year}_{month:02d}.csv")
     output_path = os.path.join(data_root , "flight", f"flight_features_{year}_{month:02d}.csv")
 
-    df = pd.read_csv(input_path, low_memory=False)
+    df = pd.read_csv(input_path, low_memory=False , on_bad_lines='skip')
     df.rename(columns={
         'FlightDate': 'FL_DATE',
         'CRSDepTime': 'CRS_DEP_TIME',
