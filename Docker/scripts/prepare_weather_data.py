@@ -17,6 +17,9 @@ def prepare_weather_data(path, output_path):
 
     keep_cols = ['hour_timestamp', 'location_id', 'tmpf', 'dwpf', 'relh', 'feel', 'sknt']
     df = df[keep_cols]
+    df.replace(["M", " ", "", "NA", "NAN"], pd.NA, inplace=True)
+    for col in ['tmpf', 'dwpf', 'relh', 'feel', 'sknt']:
+        df[col] = pd.to_numeric(df[col], errors='coerce')
     df = df.groupby(['hour_timestamp', 'location_id'], as_index=False).mean()
 
     start_date = df['hour_timestamp'].min()
