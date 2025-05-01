@@ -4,18 +4,22 @@ import requests
 import pandas as pd
 import zipfile
 import glob
-from time import sleep
-import os
+import time
 from tqdm import tqdm
-import requests
-import pandas as pd
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
-
+from urllib3.util.retry import Retry
+from requests.adapters import HTTPAdapter
 
 # ========== CONFIG ========== #
+if len(sys.argv) != 3:
+    print("Usage: python download_data.py <year> <month>")
+    sys.exit(1)
+
 year = int(sys.argv[1])
 month = int(sys.argv[2])
+ym = f"{year}-{month:02d}"
+ym_us = f"{year}_{month:02d}"
 
 # Base URLs
 TAXI_YELLOW_URL = "https://d37ci6vzurychx.cloudfront.net/trip-data/yellow_tripdata_{ym}.parquet"
@@ -33,10 +37,10 @@ os.makedirs(weather_dir, exist_ok=True)
 
 # ========== 1. TAXI DATA ========== #
 output_file = os.path.join(taxi_dir, f"all_taxi_{year}_{month:02d}.csv")
-header_written = False
-ym = f"{year}-{month:02d}"
+if os.path.exists(output_file):
+    os.remove(output_file)
 
-for taxi_type in ["yellow", "green"]:
+for idx, taxi_type in enumerate(["yellow", "green"]):
     if taxi_type == "green" and (year < 2013 or (year == 2013 and month < 8)):
         continue
 
@@ -51,6 +55,7 @@ for taxi_type in ["yellow", "green"]:
             print(f"Downloaded {fname}")
         except Exception as e:
             print(f"Failed download {fname}: {e}")
+            continue
 
     try:
         df = pd.read_parquet(fname)
@@ -71,10 +76,7 @@ for taxi_type in ["yellow", "green"]:
                     'pulocationid': 'pickup_location_id',
                     'dolocationid': 'dropoff_location_id'
                 })
-            else:
-                raise ValueError(f"{fname} is missing pickup/dropoff columns (yellow)")
-
-        else:  # green taxi
+        else:
             if 'lpep_pickup_datetime' in df.columns:
                 df = df.rename(columns={
                     'lpep_pickup_datetime': 'pickup_datetime',
@@ -82,46 +84,31 @@ for taxi_type in ["yellow", "green"]:
                     'pulocationid': 'pickup_location_id',
                     'dolocationid': 'dropoff_location_id'
                 })
-            else:
-                raise ValueError(f"{fname} is missing pickup/dropoff columns (green)")
 
-        required_cols = ['pickup_datetime', 'dropoff_datetime', 'pickup_location_id', 'dropoff_location_id']
-        for col in required_cols:
-            if col not in df.columns:
-                raise ValueError(f"{fname} is missing required column: {col}")
+        df = df[['pickup_datetime', 'dropoff_datetime', 'pickup_location_id', 'dropoff_location_id']].dropna()
 
-        # Only keep the required columns
-        df = df[required_cols]
-        df.dropna(inplace=True)
-
-        df.to_csv(output_file, mode='a', header=not header_written, index=False)
-        if not header_written:
-            header_written = True
+        mode = 'w' if idx == 0 else 'a'
+        df.to_csv(output_file, mode=mode, header=(mode == 'w'), index=False)
         print(f"Processed {fname}")
 
     except Exception as e:
         print(f"Failed to process {fname}: {e}")
-        raise  # fail intentionally
 
-    # 🧹 Cleanup
 for f in os.listdir(taxi_dir):
     if f.endswith(".parquet"):
         os.remove(os.path.join(taxi_dir, f))
 print("🧹 Deleted individual taxi parquet files")
+print(f"✅ Created: {output_file}")
+
 # ========== 2. FLIGHT DATA ========== #
-import time
-from urllib3.util.retry import Retry
-from requests.adapters import HTTPAdapter
+output_file = os.path.join(flight_dir, f"all_flights_{year}_{month:02d}.csv")
+header_written = False
+zip_url = BTS_FLIGHT_URL.format(year=year, month=month)
+zip_path = os.path.join(flight_dir, f"flight_{ym_us}.zip")
 
 session = requests.Session()
 retries = Retry(total=3, backoff_factor=10, status_forcelist=[429, 500, 502, 503, 504])
 session.mount("https://", HTTPAdapter(max_retries=retries))
-
-output_file = os.path.join(flight_dir, f"all_flights_{year}_{month:02d}.csv")
-header_written = False
-ym = f"{year}_{month:02d}"
-zip_url = BTS_FLIGHT_URL.format(year=year, month=month)
-zip_path = os.path.join(flight_dir, f"flight_{ym}.zip")
 
 if not os.path.exists(zip_path):
     try:
@@ -131,7 +118,7 @@ if not os.path.exists(zip_path):
             f.write(r.content)
         print(f"Downloaded {zip_path}")
     except Exception as e:
-        print(f"Failed flight zip {ym}: {e}")
+        print(f"Failed flight zip {ym_us}: {e}")
 
 try:
     with zipfile.ZipFile(zip_path, 'r') as zip_ref:
@@ -150,11 +137,12 @@ for extracted_file in glob.glob(os.path.join(flight_dir, "*.csv")):
     except Exception as e:
         print(f"Failed to read {extracted_file}: {e}")
 
-# Clean individual flight files after appending
 for f in os.listdir(flight_dir):
     if f.endswith(".zip") or (f.endswith(".csv") and f != f"all_flights_{year}_{month:02d}.csv"):
         os.remove(os.path.join(flight_dir, f))
 print("🧹 Deleted individual flight files")
+print(f"✅ Created: {output_file}")
+
 # ========== 3. WEATHER DATA ========== #
 asos_configs = [
     {"stations": ["JFK", "LGA"], "network": "NY_ASOS"},
@@ -172,7 +160,6 @@ ASOS_URL_TEMPLATE = (
 weather_files = []
 output_file = os.path.join(weather_dir, f"all_weather_{year}_{month:02d}.csv")
 header_written = False
-
 
 startts = datetime(year, month, 1)
 endts = startts + relativedelta(months=1)
@@ -207,7 +194,6 @@ for config in asos_configs:
         else:
             weather_files.append(fpath)
 
-# Append weather data to final CSV
 for f in weather_files:
     try:
         df = pd.read_csv(f, skiprows=5)
@@ -219,3 +205,4 @@ for f in weather_files:
 for f in weather_files:
     os.remove(f)
 print("🧹 Cleaned up individual weather files")
+print(f"✅ Created: {output_file}")
