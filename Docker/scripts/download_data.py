@@ -132,7 +132,7 @@ time.sleep(10)
 
 for extracted_file in glob.glob(os.path.join(flight_dir, "*.csv")):
     try:
-        df = pd.read_csv(extracted_file, low_memory=False)
+        df = pd.read_csv(extracted_file, low_memory=False, on_bad_lines='skip')
         df.to_csv(output_file, mode='a', header=not header_written, index=False)
         header_written = True
     except Exception as e:
