@@ -4,6 +4,8 @@ import sys
 from datetime import datetime
 
 def parse_time(t):
+    if pd.isna(t):
+        return pd.NaT
     t = str(int(t)).zfill(4)
     return pd.to_timedelta(f"{t[:2]}:{t[2:]}:00")
 
