@@ -85,10 +85,13 @@ if __name__ == "__main__":
 
     df = pd.read_csv(input_path, low_memory=False , on_bad_lines='skip')
     df.columns = [col.upper() for col in df.columns]
+    if 'FLIGHTDATE' in df.columns:
+        df.rename(columns={'FLIGHTDATE': 'FL_DATE'}, inplace=True)
+    elif 'FL_DATE' not in df.columns:
+        raise ValueError("❌ FL_DATE column not found in flight data.")
 
 # Rename only if expected columns exist
     rename_map = {
-        'FLIGHTDATE': 'FL_DATE',
         'CRSDEPTIME': 'CRS_DEP_TIME',
         'CRSARRTIME': 'CRS_ARR_TIME',
         'ORIGIN': 'ORIGIN',
