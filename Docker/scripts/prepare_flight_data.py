@@ -6,7 +6,11 @@ from datetime import datetime
 def parse_time(t):
     if pd.isna(t):
         return pd.NaT
-    t = str(int(t)).zfill(4)
+    try:
+        t = int(float(t))  # safely handle '900.0', 900.0, '0900', etc.
+    except ValueError:
+        return pd.NaT
+    t = str(t).zfill(4)     # pad to 4 digits
     return pd.to_timedelta(f"{t[:2]}:{t[2:]}:00")
 
 def preprocess_flight_data(flight_df):
