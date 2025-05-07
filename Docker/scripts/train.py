@@ -7,6 +7,7 @@ from xgboost import XGBRegressor
 from sklearn.multioutput import MultiOutputRegressor
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 import mlflow, mlflow.sklearn
+from mlflow.models.signature import infer_signature
 import ray
 
 # ─── 1. Logging ─────────────────────────────────────────
@@ -23,13 +24,12 @@ EXPERIMENT_NAME = "NYC_Taxi_Demand"
 mlflow.set_experiment(EXPERIMENT_NAME)
 
 # ─── 3. Ray init ───────────────────────────────────────
-ray.init(include_dashboard=False)  
-logging.info(f"Ray dashboard at {ray.get_webui_url()}")
+ray.init(include_dashboard=False)
+logging.info("Ray initialized successfully.")
 
 # ─── 4. Load & merge data ──────────────────────────────
 logging.info("Discovering CSV files...")
-# files = glob.glob("object-persist-project40/*/final_features_*.csv")
-files = glob.glob("object-persist-project40/*/final_features_*.csv")
+files = glob.glob("../../nyc_taxi_split/train/final_features_*.csv")
 logging.info(f"Found {len(files)} files; loading...")
 df = pd.concat((pd.read_csv(f) for f in files), ignore_index=True)
 logging.info(f"Loaded dataframe: {df.shape[0]} rows, {df.shape[1]} cols")
@@ -57,7 +57,7 @@ def train_rf(X, y):
 def train_xgb(X, y):
     m = MultiOutputRegressor(XGBRegressor(
         objective="reg:squarederror",
-        n_estimators=100, learning_rate=0.1, random_state=42,
+        n_estimators=50, learning_rate=0.1, random_state=42,
         n_jobs=-1
     ))
     m.fit(X, y)
@@ -93,8 +93,20 @@ with mlflow.start_run(run_name="RF_XGB_Stacking"):
       "xgb_lr": 0.1
     })
     mlflow.log_metrics({"MAE": mae, "RMSE": rmse, "R2": r2})
-    mlflow.sklearn.log_model(rf_model, "model_rf")
-    mlflow.sklearn.log_model(xgb_model, "model_xgb")
+
+    from mlflow.models.signature import infer_signature
+
+    signature_rf = infer_signature(X_test, pred_rf)
+    signature_xgb = infer_signature(X_test, pred_xgb)
+
+    mlflow.sklearn.log_model(rf_model, "model_rf", signature=signature_rf, input_example=X_test.iloc[:2])
+    mlflow.sklearn.log_model(xgb_model, "model_xgb", signature=signature_xgb, input_example=X_test.iloc[:2])
+
+    # 🆕 Save and log compressed artifact
+    import joblib
+    joblib.dump(rf_model, "rf_model_compressed.pkl", compress=3)
+    mlflow.log_artifact("rf_model_compressed.pkl")
+
     logging.info("Run logged to MLflow.")
 
 logging.info("All done.")
