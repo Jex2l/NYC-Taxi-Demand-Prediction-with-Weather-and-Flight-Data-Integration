@@ -9,6 +9,7 @@ from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 import mlflow, mlflow.sklearn
 from mlflow.models.signature import infer_signature
 import ray
+import joblib
 
 # ─── 1. Logging ─────────────────────────────────────────
 logging.basicConfig(
@@ -99,11 +100,11 @@ with mlflow.start_run(run_name="RF_XGB_Stacking"):
     signature_rf = infer_signature(X_test, pred_rf)
     signature_xgb = infer_signature(X_test, pred_xgb)
 
-    mlflow.sklearn.log_model(rf_model, "model_rf", signature=signature_rf, input_example=X_test.iloc[:2])
-    mlflow.sklearn.log_model(xgb_model, "model_xgb", signature=signature_xgb, input_example=X_test.iloc[:2])
+    # mlflow.sklearn.log_model(rf_model, "model_rf", signature=signature_rf, input_example=X_test.iloc[:2])
+    # mlflow.sklearn.log_model(xgb_model, "model_xgb", signature=signature_xgb, input_example=X_test.iloc[:2])
 
     # 🆕 Save and log compressed artifact
-    import joblib
+    
     joblib.dump(rf_model, "rf_model_compressed.pkl", compress=3)
     mlflow.log_artifact("rf_model_compressed.pkl")
 
