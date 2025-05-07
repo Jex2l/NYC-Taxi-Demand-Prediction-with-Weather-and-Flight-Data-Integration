@@ -5,3 +5,8 @@ boto3
 python-swiftclient
 tqdm
 python-dateutil
+numpy
+scikit-learn
+xgboost
+mlflow
+ray
