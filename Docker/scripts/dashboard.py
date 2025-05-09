@@ -9,8 +9,10 @@ from dash import Dash, dcc, html
 from dash.dependencies import Input, Output
 
 # ── 1. Base and Data Paths ──────────────────────────────────────────
-BASE_DIR = Path(__file__).resolve().parent.parent  # repo root
-DATA_DIR = BASE_DIR / "data"
+# Script is in Docker/scripts; repo root is 3 levels up
+SCRIPT_PATH = Path(__file__).resolve()
+REPO_ROOT = SCRIPT_PATH.parents[2]
+DATA_DIR = REPO_ROOT / "data"
 
 # ── 2. Load Taxi Zone Geometry ──────────────────────────────────────
 geojson_path = DATA_DIR / "taxi_zones.geojson"
@@ -28,7 +30,6 @@ if not df_files:
 def load_latest(months=1):
     files = df_files[-months:]
     df = pd.concat([pd.read_csv(f) for f in files], ignore_index=True)
-    # aggregate total pickups by zone and hour
     agg = (
         df.groupby(["pickup_zone", "hour"])['pickup_count']
           .sum()
@@ -63,9 +64,7 @@ app.layout = html.Div([
 )
 def update_dashboard(months):
     df = load_latest(months)
-    # merge shapefile by zone
     gdf = zones.merge(df, left_on="zone_name", right_on="pickup_zone")
-    # choropleth map
     fig_map = px.choropleth_mapbox(
         gdf,
         geojson=gdf.geometry,
@@ -79,7 +78,6 @@ def update_dashboard(months):
     )
     fig_map.update_layout(margin={"r":0, "t":0, "l":0, "b":0})
 
-    # time-series bar chart
     df_ts = df.groupby("hour")['pickup_count'].sum().reset_index()
     fig_ts = px.bar(
         df_ts,
@@ -93,4 +91,3 @@ def update_dashboard(months):
 # ── 7. Run Server ───────────────────────────────────────────────────
 if __name__ == "__main__":
     app.run_server(host="0.0.0.0", port=8050)
-
