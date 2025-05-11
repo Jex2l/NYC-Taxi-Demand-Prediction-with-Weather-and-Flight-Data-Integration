@@ -2,75 +2,93 @@
 import os
 import pandas as pd
 import joblib
-from flask import Flask, request, jsonify
+from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel
+from typing import List
 
-app = Flask(__name__)
+app = FastAPI(
+    title="NYC Taxi Demand Prediction API",
+    description="POST a JSON payload to /predict with the features listed below",
+    version="1.0.0"
+)
 
-# ─── Load your trained ensemble model ─────────────────────────────────────────
-# Since Dockerfile sets WORKDIR /app and copies models/xgb_model_100.pth there:
+# ─── Load the trained model ───────────────────────────────────────────────────
 MODEL_PATH = "models/xgb_model_100.pth"
 if not os.path.exists(MODEL_PATH):
-    raise FileNotFoundError(f"Model file not found at {MODEL_PATH}")
+    raise FileNotFoundError(f"Model not found at {MODEL_PATH}")
 model = joblib.load(MODEL_PATH)
 
-# ─── Features as per your CSV (minus the two targets) ────────────────────────
-FEATURE_COLUMNS = [
-    "location_id",
-    "year",
-    "month",
-    "day",
-    "hour",
-    "minute",
-    "dow",
-    "dep_now",
-    "dep_next_30",
-    "dep_next_60",
-    "dep_next_90",
-    "dep_next_120",
-    "arr_now",
-    "arr_next_30",
-    "arr_next_60",
-    "arr_next_90",
-    "arr_next_120",
-    "tmpf",
-    "dwpf",
-    "relh",
-    "feel",
-    "sknt",
+# ─── Feature list (exact names from your CSVs minus the targets) ──────────────
+FEATURE_COLUMNS: List[str] = [
+    "location_id", "year", "month", "day", "hour", "minute", "dow",
+    "dep_now", "dep_next_30", "dep_next_60", "dep_next_90", "dep_next_120",
+    "arr_now", "arr_next_30", "arr_next_60", "arr_next_90", "arr_next_120",
+    "tmpf", "dwpf", "relh", "feel", "sknt",
 ]
 
-# ─── Health‑check / info endpoint ────────────────────────────────────────────
-@app.route("/", methods=["GET"])
-def index():
-    return (
-        "NYC Taxi Demand Prediction API\n\n"
-        "POST a JSON payload to /predict with these features:\n"
-        f"{FEATURE_COLUMNS}\n"
-    )
+# ─── Pydantic schemas ─────────────────────────────────────────────────────────
+class PredictRequest(BaseModel):
+    location_id: int
+    year: int
+    month: int
+    day: int
+    hour: int
+    minute: int
+    dow: int
+    dep_now: float
+    dep_next_30: float
+    dep_next_60: float
+    dep_next_90: float
+    dep_next_120: float
+    arr_now: float
+    arr_next_30: float
+    arr_next_60: float
+    arr_next_90: float
+    arr_next_120: float
+    tmpf: float
+    dwpf: float
+    relh: float
+    feel: float
+    sknt: float
+
+class PredictResponse(BaseModel):
+    pickup_count: float
+    dropoff_count: float
+
+# ─── Root endpoint for info ───────────────────────────────────────────────────
+@app.get("/", summary="API info")
+def root():
+    return {
+        "message": "NYC Taxi Demand Prediction Service (FastAPI)",
+        "features": FEATURE_COLUMNS,
+        "endpoint": "/predict (POST)"
+    }
 
 # ─── Prediction endpoint ─────────────────────────────────────────────────────
-@app.route("/predict", methods=["POST"])
-def predict():
-    data = request.get_json(force=True)
-    
-    # 1. Input validation
-    missing = [f for f in FEATURE_COLUMNS if f not in data]
-    if missing:
-        return jsonify({"error": f"Missing features: {missing}"}), 400
-
-    # 2. Build DataFrame for prediction
+@app.post(
+    "/predict",
+    response_model=PredictResponse,
+    summary="Predict pickup & dropoff counts"
+)
+def predict(req: PredictRequest):
+    # 1. Build DataFrame from the validated request
+    data = req.dict()
     X = pd.DataFrame([data], columns=FEATURE_COLUMNS)
 
-    # 3. Predict: model.predict returns shape (1, 2) for pickup & dropoff
-    preds = model.predict(X)
+    # 2. Run model.predict
+    try:
+        preds = model.predict(X)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+    # 3. Unpack and return
     pickup_pred, dropoff_pred = preds[0]
+    return PredictResponse(
+        pickup_count=float(pickup_pred),
+        dropoff_count=float(dropoff_pred)
+    )
 
-    # 4. Return JSON
-    return jsonify({
-        "pickup_count": float(pickup_pred),
-        "dropoff_count": float(dropoff_pred)
-    })
-
-# ─── Run server ───────────────────────────────────────────────────────────────
+# ─── Local dev server ─────────────────────────────────────────────────────────
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=8000, debug=False)
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)
