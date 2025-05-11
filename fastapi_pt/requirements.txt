@@ -1,12 +1,6 @@
 fastapi
 uvicorn
-numpy
-pillow
-torch
-torchvision
-flask 
-pandas 
+pandas
 joblib
-os
 scikit-learn
 xgboost
