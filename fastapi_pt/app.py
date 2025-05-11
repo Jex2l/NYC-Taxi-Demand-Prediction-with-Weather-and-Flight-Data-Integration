@@ -8,7 +8,7 @@ from typing import List
 
 app = FastAPI(
     title="NYC Taxi Demand Prediction API",
-    description="POST a JSON payload to /predict with the features listed below",
+    description="POST JSON to /predict with the features listed below",
     version="1.0.0"
 )
 
@@ -18,7 +18,7 @@ if not os.path.exists(MODEL_PATH):
     raise FileNotFoundError(f"Model not found at {MODEL_PATH}")
 model = joblib.load(MODEL_PATH)
 
-# ─── Feature list (exact names from your CSVs minus the targets) ──────────────
+# ─── Feature list (exact names from your final_features CSVs, minus targets) ───
 FEATURE_COLUMNS: List[str] = [
     "location_id", "year", "month", "day", "hour", "minute", "dow",
     "dep_now", "dep_next_30", "dep_next_60", "dep_next_90", "dep_next_120",
@@ -26,7 +26,7 @@ FEATURE_COLUMNS: List[str] = [
     "tmpf", "dwpf", "relh", "feel", "sknt",
 ]
 
-# ─── Pydantic schemas ─────────────────────────────────────────────────────────
+# ─── Pydantic request/response schemas ────────────────────────────────────────
 class PredictRequest(BaseModel):
     location_id: int
     year: int
@@ -55,7 +55,7 @@ class PredictResponse(BaseModel):
     pickup_count: float
     dropoff_count: float
 
-# ─── Root endpoint for info ───────────────────────────────────────────────────
+# ─── Health‑check/info ───────────────────────────────────────────────────────
 @app.get("/", summary="API info")
 def root():
     return {
@@ -65,23 +65,14 @@ def root():
     }
 
 # ─── Prediction endpoint ─────────────────────────────────────────────────────
-@app.post(
-    "/predict",
-    response_model=PredictResponse,
-    summary="Predict pickup & dropoff counts"
-)
+@app.post("/predict", response_model=PredictResponse, summary="Predict counts")
 def predict(req: PredictRequest):
-    # 1. Build DataFrame from the validated request
     data = req.dict()
     X = pd.DataFrame([data], columns=FEATURE_COLUMNS)
-
-    # 2. Run model.predict
     try:
         preds = model.predict(X)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
-    # 3. Unpack and return
     pickup_pred, dropoff_pred = preds[0]
     return PredictResponse(
         pickup_count=float(pickup_pred),
