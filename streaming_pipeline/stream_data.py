@@ -17,13 +17,14 @@ load_dotenv()
 
 # Configure logging
 logging.basicConfig(
-    logging.WARNING,
+    level=logging.WARNING,  
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
         logging.FileHandler('streaming_pipeline.log'),
         logging.StreamHandler()
     ]
 )
+
 logger = logging.getLogger(__name__)
 
 class StreamingPipeline:
