@@ -16,7 +16,7 @@ COPY fastapi_pt/app.py .
 # COPY fastapi_pt/ ./ 
 
 # Ensure model file is available inside the container
-COPY models/xgb_model_100.pth models/xgb_model_100.pth
+COPY models/xgb_model_100.pth
 
 # Expose FastAPI port
 EXPOSE 8000
