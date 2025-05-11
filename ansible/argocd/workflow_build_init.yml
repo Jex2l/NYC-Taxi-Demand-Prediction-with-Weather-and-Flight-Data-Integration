@@ -19,7 +19,7 @@
   hosts: node1
   become: yes
   vars:
-    repo_url: https://github.com/teaching-on-testbeds/gourmetgram-iac.git
+    repo_url: https://github.com/Jex2l/NYC-Taxi-Demand-Prediction-with-Weather-and-Flight-Data-Integration
     repo_dest: /tmp/gourmetgram-iac
     workflow_file: workflows/build-initial.yaml   
     workflow_name: build-initial
