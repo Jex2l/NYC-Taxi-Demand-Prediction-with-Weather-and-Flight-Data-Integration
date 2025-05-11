@@ -5,14 +5,18 @@ FROM python:3.11-slim
 WORKDIR /app
 
 # Copy the requirements file and install dependencies
-COPY requirements.txt .
+COPY fastapi_pt/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy the application code
-COPY . .
+COPY fastapi_pt/app.py .
+
+# (If you have other modules/packages under fastapi_pt/, uncomment the next line
+#  to bring them in as well)
+# COPY fastapi_pt/ ./ 
 
 # Ensure model file is available inside the container
-COPY food11.pth /app/
+COPY models/xgb_model_100.pth models/xgb_model_100.pth
 
 # Expose FastAPI port
 EXPOSE 8000
