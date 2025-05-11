@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 import os
 import time
 import json
@@ -7,7 +6,6 @@ import pandas as pd
 import requests
 from datetime import datetime
 from pathlib import Path
-import boto3
 from dotenv import load_dotenv
 from tqdm import tqdm
 
@@ -16,7 +14,7 @@ load_dotenv()
 
 # Configure logging
 logging.basicConfig(
-    level=logging.WARNING,
+    level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
         logging.FileHandler('streaming_pipeline.log'),
@@ -36,34 +34,27 @@ class StreamingPipeline:
         self.prediction_interval = prediction_interval
         self.data_dir = Path(data_dir)
         self.results_dir = Path(results_dir)
-        self.data_dir.mkdir(parents=True, exist_ok=True)
         self.results_dir.mkdir(parents=True, exist_ok=True)
-
-        # Initialize S3 client
-        self.s3_client = boto3.client('s3',
-            endpoint_url=os.getenv('S3_ENDPOINT_URL', 'https://chi.tacc.chameleoncloud.org:8080'),
-            aws_access_key_id=os.getenv('AWS_ACCESS_KEY_ID'),
-            aws_secret_access_key=os.getenv('AWS_SECRET_ACCESS_KEY'),
-            region_name=os.getenv('AWS_DEFAULT_REGION', 'us-east-1')
-        )
-        self.bucket_name = "object-persist-project40"
-        self.prefix = "nyc_taxi_split/prod"
-        self.predictions_prefix = "predictions"
 
     def download_monthly_data(self, year, month):
         filename = f"final_features_{year}_{month:02d}.csv"
         local_path = self.data_dir / filename
-        rclone_source = f"chi_tacc:{self.bucket_name}/{self.prefix}/{filename}"
+
         try:
-            os.system(f"rclone copy {rclone_source} {self.data_dir}")
-            if local_path.exists():
-                logger.info(f"✅ Successfully downloaded {filename}")
+            rclone_source = f"chi_tacc:object-persist-project40/nyc_taxi_split/prod/{filename}"
+            local_path.parent.mkdir(parents=True, exist_ok=True)
+            logger.info(f"Downloading {filename} using Rclone from {rclone_source}")
+
+            exit_code = os.system(f"rclone copy {rclone_source} {local_path.parent}")
+            if exit_code == 0 and local_path.exists():
+                logger.info(f"✅ Successfully downloaded {filename} via Rclone")
                 return pd.read_csv(local_path)
             else:
-                logger.error(f"❌ Rclone failed: {filename} not found")
+                logger.error(f"❌ Rclone failed with exit code {exit_code}")
                 return None
+
         except Exception as e:
-            logger.error(f"Error downloading {filename}: {e}")
+            logger.error(f"Unexpected error downloading {filename}: {e}")
             return None
 
     def prepare_prediction_request(self, row):
@@ -92,61 +83,68 @@ class StreamingPipeline:
             "sknt": float(row["sknt"])
         }
 
+    def save_prediction_result(self, year, month, results):
+        filename = f"predictions_{year}_{month:02d}.jsonl"
+        file_path = self.results_dir / filename
+
+        with open(file_path, "w") as f:
+            for record in results:
+                f.write(json.dumps(record) + "\n")
+
+        logger.info(f"Saved predictions to {file_path}")
+        self.upload_predictions_to_object_store(file_path, year, month)
+
+    def upload_predictions_to_object_store(self, local_path, year, month):
+        remote_path = f"chi_tacc:object-persist-project40/predictions"
+        exit_code = os.system(f"rclone copy {local_path} {remote_path}")
+
+        if exit_code == 0:
+            logger.info(f"✅ Uploaded predictions_{year}_{month:02d}.jsonl to {remote_path}")
+        else:
+            logger.error(f"❌ Failed to upload predictions: Rclone exit code {exit_code}")
+
     def simulate_streaming(self, df, year, month):
-        logger.info(f"🔁 Starting simulation with {len(df)} records")
-        predictions = []
+        logger.info(f"🔁 Starting simulation for {year}-{month:02d} with {len(df)} records")
+        results = []
+
         for idx, row in tqdm(df.iterrows(), total=len(df), desc=f"Simulating {year}-{month:02d}"):
             try:
                 request_data = self.prepare_prediction_request(row)
                 response = requests.post(f"{self.api_url}/predict", json=request_data, timeout=30)
                 response.raise_for_status()
                 prediction = response.json()
+
                 actual = {
                     "pickup_count": float(row.get("pickup_count", 0)),
                     "dropoff_count": float(row.get("dropoff_count", 0))
                 }
-                predictions.append({
+
+                results.append({
                     "timestamp": datetime.now().strftime("%Y%m%d_%H%M%S"),
                     "request": request_data,
                     "prediction": prediction,
                     "actual": actual
                 })
+
                 time.sleep(self.prediction_interval)
+
             except Exception as e:
                 logger.warning(f"⚠️ Error at record {idx}: {e}")
                 continue
 
-        # Save locally then upload
-        filename = f"predictions_{year}_{month:02d}.jsonl"
-        local_file = self.results_dir / filename
-        with open(local_file, "w") as f:
-            for item in predictions:
-                f.write(json.dumps(item) + "\n")
-        logger.info(f"✅ Saved local prediction results to {local_file}")
+        self.save_prediction_result(year, month, results)
 
-        # Upload to object store
-        try:
-            s3_key = f"{self.predictions_prefix}/{filename}"
-            self.s3_client.upload_file(str(local_file), self.bucket_name, s3_key)
-            logger.info(f"☁️ Uploaded predictions to s3://{self.bucket_name}/{s3_key}")
-        except Exception as e:
-            logger.error(f"❌ Failed to upload predictions: {e}")
-
-    def run(self, year=2024, month=None):
-        if month is None:
-            month = datetime.now().month
-        logger.info(f"📅 Processing {year}-{month:02d}")
-        df = self.download_monthly_data(year, month)
-        if df is not None:
-            self.simulate_streaming(df, year, month)
-        else:
-            logger.error(f"❌ No data for {year}-{month:02d}")
+    def run(self, year=2024):
+        for month in range(1, 13):
+            df = self.download_monthly_data(year, month)
+            if df is not None:
+                self.simulate_streaming(df, year, month)
+            else:
+                logger.warning(f"Skipping month {month:02d} due to missing data")
 
 if __name__ == "__main__":
     pipeline = StreamingPipeline(
-        api_url=os.getenv("API_URL", "http://localhost:8000"),
+        api_url=os.getenv('API_URL', 'http://localhost:8000'),
         prediction_interval=0.1
     )
-
-    for month in range(1, 13):
-        pipeline.run(year=2024, month=month)
+    pipeline.run(year=2024)
