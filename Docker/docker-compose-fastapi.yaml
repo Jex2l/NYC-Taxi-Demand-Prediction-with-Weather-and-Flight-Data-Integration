@@ -1,0 +1,32 @@
+name: fastapi_test
+services:
+  fastapi_server:
+    build:
+      context: ../fastapi_pt       # point at your fastapi_pt folder
+      dockerfile: Dockerfile
+    container_name: fastapi_server
+    ports:
+      - "8000:8000"                 # exposes your /predict endpoint
+
+  jupyter:
+    image: quay.io/jupyter/minimal-notebook:latest
+    container_name: jupyter
+    ports:
+      - "8888:8888"   # or 8888 if you free it up
+    # Mount *your* repo root into /home/jovyan/work
+    volumes:
+      - /home/cc/NYC-Taxi-Demand-Prediction-with-Weather-and-Flight-Data-Integration:/home/jovyan/work
+    working_dir: /home/jovyan/work
+    command: >
+      bash -c "pip install numpy joblib scikit-learn xgboost && \
+      start-notebook.sh --NotebookApp.notebook_dir=/home/jovyan/work"
+
+  flask:
+    build:
+      context: ../flask_app        # point at your flask_app folder
+      dockerfile: Dockerfile
+    container_name: flask
+    ports:
+      - "80:5000"
+    environment:
+      - FASTAPI_SERVER_URL=http://fastapi_server:8000
