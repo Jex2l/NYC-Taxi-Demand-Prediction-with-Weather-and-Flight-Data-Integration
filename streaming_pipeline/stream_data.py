@@ -174,6 +174,6 @@ if __name__ == "__main__":
     # Example usage
     pipeline = StreamingPipeline(
         api_url=os.getenv('API_URL', 'http://localhost:8000'),
-        prediction_interval=900  # 15 minutes
+        prediction_interval=0.1  # 15 minutes
     )
     pipeline.run(year=2024, month=1)  # Process January 2024 data 
