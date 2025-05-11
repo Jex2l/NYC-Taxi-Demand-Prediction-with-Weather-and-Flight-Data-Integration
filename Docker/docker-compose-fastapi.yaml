@@ -3,11 +3,12 @@ version: "3.8"
 services:
   fastapi_server:
     build:
-      context: ../fastapi_pt       # go up one level from Docker/
-      dockerfile: Dockerfile
+      # Build context is the repo root (one level up from Docker/)
+      context: ..
+      dockerfile: fastapi_pt/Dockerfile
     container_name: fastapi_server
     ports:
-      - "8000:8000"                # inference API
+      - "8000:8000"    # your FastAPI inference endpoint
 
   jupyter:
     image: quay.io/jupyter/minimal-notebook:latest
@@ -15,16 +16,16 @@ services:
     ports:
       - "8888:8888"
     volumes:
-      - ../workspace:/home/jovyan/work
+      - ../notebooks:/home/jovyan/work   # mount your notebooks folder
     command: >
-      bash -c "pip install numpy pandas joblib flask fastapi uvicorn && start-notebook.sh"
+      bash -c "pip install --no-cache-dir numpy pandas joblib fastapi uvicorn && start-notebook.sh"
 
   flask:
     build:
-      context: ../fastapi_pt       # same app context
-      dockerfile: Dockerfile
+      context: ..
+      dockerfile: fastapi_pt/Dockerfile
     container_name: flask
     ports:
-      - "5000:8000"                # host‑port 5000 → container‑port 8000
+      - "5000:8000"    # host port 5000 → container port 8000
     environment:
       FASTAPI_SERVER_URL: http://fastapi_server:8000
