@@ -1,32 +1,40 @@
+version: "3.8"
 name: fastapi_test
+
 services:
   fastapi_server:
     build:
-      context: ../fastapi_pt       # point at your fastapi_pt folder
+      context: ./fastapi_pt
       dockerfile: Dockerfile
     container_name: fastapi_server
+    # if you need GPU access for heavier workloads, keep this section;
+    # otherwise you can omit deploy.resources entirely
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
     ports:
-      - "8000:8000"                 # exposes your /predict endpoint
+      - "8000:8000"    # exposes your FastAPI (or Flask) inference API
 
   jupyter:
     image: quay.io/jupyter/minimal-notebook:latest
     container_name: jupyter
     ports:
-      - "8888:8888"   # or 8888 if you free it up
-    # Mount *your* repo root into /home/jovyan/work
+      - "8888:8888"
     volumes:
-      - /home/cc/NYC-Taxi-Demand-Prediction-with-Weather-and-Flight-Data-Integration:/home/jovyan/work
-    working_dir: /home/jovyan/work
+      - ./workspace:/home/jovyan/work    # mount a local 'workspace/' dir
     command: >
-      bash -c "pip install numpy joblib scikit-learn xgboost && \
-      start-notebook.sh --NotebookApp.notebook_dir=/home/jovyan/work"
+      bash -c "pip install numpy pandas joblib flask fastapi uvicorn && start-notebook.sh"
 
   flask:
     build:
-      context: ../flask_app        # point at your flask_app folder
+      context: ./fastapi_pt
       dockerfile: Dockerfile
     container_name: flask
     ports:
-      - "80:5000"
+      - "5000:8000"    # maps host:5000 → container:8000 (where app.py listens)
     environment:
-      - FASTAPI_SERVER_URL=http://fastapi_server:8000
+      FASTAPI_SERVER_URL: http://fastapi_server:8000
