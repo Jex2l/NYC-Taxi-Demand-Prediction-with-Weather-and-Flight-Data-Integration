@@ -67,7 +67,7 @@ def root():
 # ─── Prediction endpoint ─────────────────────────────────────────────────────
 @app.post("/predict", response_model=PredictResponse, summary="Predict counts")
 def predict(req: PredictRequest):
-    df = pd.DataFrame([req.dict()], columns=FEATURE_COLUMNS)
+    df = pd.DataFrame([req.model_dump()], columns=FEATURE_COLUMNS)
     try:
         preds = model.predict(df)
     except Exception as e:
