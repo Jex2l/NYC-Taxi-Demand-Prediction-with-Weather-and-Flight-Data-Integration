@@ -48,20 +48,24 @@ class StreamingPipeline:
         self.prefix = "nyc_taxi_split/prod"
 
     def download_monthly_data(self, year, month):
-        """Download monthly data from object store"""
+        """Download monthly data using Rclone instead of boto3"""
         filename = f"final_features_{year}_{month:02d}.csv"
         local_path = self.data_dir / filename
-        
+
         try:
-            # Download from object store
-            s3_key = f"{self.prefix}/{filename}"
-            logger.info(f"Downloading {filename} from {self.bucket_name}/{s3_key}")
-            self.s3_client.download_file(self.bucket_name, s3_key, str(local_path))
-            logger.info(f"Successfully downloaded {filename}")
-            return pd.read_csv(local_path)
-        except ClientError as e:
-            logger.error(f"Error downloading {filename}: {e}")
-            return None
+            rclone_source = f"chi_tacc:object-persist-project40/nyc_taxi_split/prod/{filename}"
+            local_path.parent.mkdir(parents=True, exist_ok=True)
+            logger.info(f"Downloading {filename} using Rclone from {rclone_source}")
+            
+            exit_code = os.system(f"rclone copy {rclone_source} {local_path.parent}")
+            
+            if exit_code == 0 and local_path.exists():
+                logger.info(f"✅ Successfully downloaded {filename} via Rclone")
+                return pd.read_csv(local_path)
+            else:
+                logger.error(f"❌ Rclone failed with exit code {exit_code}")
+                return None
+
         except Exception as e:
             logger.error(f"Unexpected error downloading {filename}: {e}")
             return None
