@@ -4,7 +4,7 @@
   become: yes
   vars:
     argocd_username: "admin"
-    repo_path: "https://github.com/teaching-on-testbeds/gourmetgram-iac.git"
+    repo_path: "https://github.com/Jex2l/NYC-Taxi-Demand-Prediction-with-Weather-and-Flight-Data-Integration"
     app_name: "gourmetgram-platform"
     app_path: "k8s/platform"
     minio_access_key: "your-access-key"
