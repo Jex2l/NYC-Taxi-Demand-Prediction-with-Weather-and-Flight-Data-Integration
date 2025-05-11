@@ -7,7 +7,10 @@ from flask import Flask, request, jsonify
 app = Flask(__name__)
 
 # ─── Load your trained ensemble model ─────────────────────────────────────────
-MODEL_PATH = "/mnt/data/xgb_model_100.pth"   # adjust if needed
+# Since Dockerfile sets WORKDIR /app and copies models/xgb_model_100.pth there:
+MODEL_PATH = "models/xgb_model_100.pth"
+if not os.path.exists(MODEL_PATH):
+    raise FileNotFoundError(f"Model file not found at {MODEL_PATH}")
 model = joblib.load(MODEL_PATH)
 
 # ─── Features as per your CSV (minus the two targets) ────────────────────────
@@ -36,7 +39,7 @@ FEATURE_COLUMNS = [
     "sknt",
 ]
 
-# ─── Health‐check / info endpoint ────────────────────────────────────────────
+# ─── Health‑check / info endpoint ────────────────────────────────────────────
 @app.route("/", methods=["GET"])
 def index():
     return (
