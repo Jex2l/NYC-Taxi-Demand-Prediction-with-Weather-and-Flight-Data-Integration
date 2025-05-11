@@ -4,7 +4,7 @@
   become: yes
   vars:
     app_name: gourmetgram-staging
-    repo_url: https://github.com/teaching-on-testbeds/gourmetgram-iac.git
+    repo_url: https://github.com/Jex2l/NYC-Taxi-Demand-Prediction-with-Weather-and-Flight-Data-Integration
     app_path: k8s/staging
     argocd_namespace: argocd
 
