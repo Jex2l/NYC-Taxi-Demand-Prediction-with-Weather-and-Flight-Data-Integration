@@ -2,21 +2,21 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: gourmetgram-app
-  namespace: gourmetgram-canary
+  name: taxi-app
+  namespace: taxi-canary
 
 spec:
   replicas: {{ .Values.replicaCount }}
   selector:
     matchLabels:
-      app: gourmetgram-app
+      app: taxi-app
   template:
     metadata:
       labels:
-        app: gourmetgram-app
+        app: taxi-app
     spec:
       containers:
-        - name: gourmetgram-app
+        - name: taxi-app
           image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
           ports:
             - containerPort: 8000
@@ -27,11 +27,11 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: gourmetgram-app
-  namespace: gourmetgram-canary
+  name: taxi-app
+  namespace: taxi-canary
 spec:
   selector:
-    app: gourmetgram-app
+    app: taxi-app
   ports:
     - port: {{ .Values.service.port }}
       targetPort: 8000
