@@ -4,7 +4,13 @@ import sys
 from datetime import datetime
 
 def parse_time(t):
-    t = str(int(t)).zfill(4)
+    if pd.isna(t):
+        return pd.NaT
+    try:
+        t = int(float(t))  # safely handle '900.0', 900.0, '0900', etc.
+    except ValueError:
+        return pd.NaT
+    t = str(t).zfill(4)     # pad to 4 digits
     return pd.to_timedelta(f"{t[:2]}:{t[2:]}:00")
 
 def preprocess_flight_data(flight_df):
@@ -85,10 +91,13 @@ if __name__ == "__main__":
 
     df = pd.read_csv(input_path, low_memory=False , on_bad_lines='skip')
     df.columns = [col.upper() for col in df.columns]
+    if 'FLIGHTDATE' in df.columns:
+        df.rename(columns={'FLIGHTDATE': 'FL_DATE'}, inplace=True)
+    elif 'FL_DATE' not in df.columns:
+        raise ValueError("❌ FL_DATE column not found in flight data.")
 
 # Rename only if expected columns exist
     rename_map = {
-        'FLIGHTDATE': 'FL_DATE',
         'CRSDEPTIME': 'CRS_DEP_TIME',
         'CRSARRTIME': 'CRS_ARR_TIME',
         'ORIGIN': 'ORIGIN',
