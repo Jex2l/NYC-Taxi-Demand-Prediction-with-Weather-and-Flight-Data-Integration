@@ -8,17 +8,17 @@ from typing import List
 
 app = FastAPI(
     title="NYC Taxi Demand Prediction API",
-    description="POST JSON to /predict with the features listed below",
+    description="POST JSON to /predict with the features below",
     version="1.0.0"
 )
 
-# ─── Load the trained model ───────────────────────────────────────────────────
+# ─── Load the model ───────────────────────────────────────────────────────────
 MODEL_PATH = "models/xgb_model_100.pth"
 if not os.path.exists(MODEL_PATH):
     raise FileNotFoundError(f"Model not found at {MODEL_PATH}")
 model = joblib.load(MODEL_PATH)
 
-# ─── Feature list (exact names from your final_features CSVs, minus targets) ───
+# ─── Feature list (exact names from your CSVs minus the two targets) ───────────
 FEATURE_COLUMNS: List[str] = [
     "location_id", "year", "month", "day", "hour", "minute", "dow",
     "dep_now", "dep_next_30", "dep_next_60", "dep_next_90", "dep_next_120",
@@ -26,7 +26,7 @@ FEATURE_COLUMNS: List[str] = [
     "tmpf", "dwpf", "relh", "feel", "sknt",
 ]
 
-# ─── Pydantic request/response schemas ────────────────────────────────────────
+# ─── Request/response schemas ─────────────────────────────────────────────────
 class PredictRequest(BaseModel):
     location_id: int
     year: int
@@ -55,11 +55,11 @@ class PredictResponse(BaseModel):
     pickup_count: float
     dropoff_count: float
 
-# ─── Health‑check/info ───────────────────────────────────────────────────────
+# ─── Info endpoint ────────────────────────────────────────────────────────────
 @app.get("/", summary="API info")
 def root():
     return {
-        "message": "NYC Taxi Demand Prediction Service (FastAPI)",
+        "message": "NYC Taxi Demand Prediction (FastAPI)",
         "features": FEATURE_COLUMNS,
         "endpoint": "/predict (POST)"
     }
@@ -67,10 +67,9 @@ def root():
 # ─── Prediction endpoint ─────────────────────────────────────────────────────
 @app.post("/predict", response_model=PredictResponse, summary="Predict counts")
 def predict(req: PredictRequest):
-    data = req.dict()
-    X = pd.DataFrame([data], columns=FEATURE_COLUMNS)
+    df = pd.DataFrame([req.dict()], columns=FEATURE_COLUMNS)
     try:
-        preds = model.predict(X)
+        preds = model.predict(df)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
     pickup_pred, dropoff_pred = preds[0]
@@ -79,7 +78,7 @@ def predict(req: PredictRequest):
         dropoff_count=float(dropoff_pred)
     )
 
-# ─── Local dev server ─────────────────────────────────────────────────────────
+# ─── Local debug server ───────────────────────────────────────────────────────
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
