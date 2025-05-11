@@ -10,13 +10,14 @@ from pathlib import Path
 import boto3
 from botocore.exceptions import ClientError
 from dotenv import load_dotenv
+from tqdm import tqdm
 
 # Load environment variables
 load_dotenv()
 
 # Configure logging
 logging.basicConfig(
-    level=logging.INFO,
+    logging.WARNING,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
         logging.FileHandler('streaming_pipeline.log'),
@@ -115,45 +116,43 @@ class StreamingPipeline:
             f.write(json.dumps(result) + "\n")
         logger.info(f"Saved prediction result to {result_file}")
 
+    from tqdm import tqdm
+
     def simulate_streaming(self, df):
         """Simulate real-time data streaming"""
-        logger.info(f"Starting simulation with {len(df)} records")
-        
-        for idx, row in df.iterrows():
+        logger.info(f"🔁 Starting simulation with {len(df)} records")
+
+        for idx, row in tqdm(df.iterrows(), total=len(df), desc="Simulating"):
             try:
                 # Prepare request
                 request_data = self.prepare_prediction_request(row)
-                
+
                 # Send prediction request
-                logger.info(f"Sending prediction request for record {idx + 1}")
                 response = requests.post(
                     f"{self.api_url}/predict",
                     json=request_data,
-                    timeout=30  # Add timeout for API requests
+                    timeout=30
                 )
                 response.raise_for_status()
-                
+
                 # Get prediction
                 prediction = response.json()
-                
+
                 # Save results
                 actual = {
                     "pickup_count": float(row.get("pickup_count", 0)),
                     "dropoff_count": float(row.get("dropoff_count", 0))
                 }
                 self.save_prediction_result(request_data, prediction, actual)
-                
-                logger.info(f"Processed record {idx + 1}/{len(df)}")
-                
-                # Simulate real-time delay (15 minutes)
-                logger.info(f"Waiting {self.prediction_interval} seconds before next prediction")
+
+                # Delay to simulate stream
                 time.sleep(self.prediction_interval)
-                
+
             except requests.exceptions.RequestException as e:
-                logger.error(f"API request error for record {idx}: {e}")
+                logger.warning(f"⚠️ API error at record {idx}: {e}")
                 continue
             except Exception as e:
-                logger.error(f"Error processing record {idx}: {e}")
+                logger.warning(f"⚠️ Unexpected error at record {idx}: {e}")
                 continue
 
     def run(self, year=2024, month=None):
