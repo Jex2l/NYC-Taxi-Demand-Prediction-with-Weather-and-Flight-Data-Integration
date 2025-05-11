@@ -5,10 +5,9 @@ import json
 import logging
 import pandas as pd
 import requests
-from datetime import datetime, timedelta
+from datetime import datetime
 from pathlib import Path
 import boto3
-from botocore.exceptions import ClientError
 from dotenv import load_dotenv
 from tqdm import tqdm
 
@@ -17,7 +16,7 @@ load_dotenv()
 
 # Configure logging
 logging.basicConfig(
-    level=logging.WARNING,  
+    level=logging.WARNING,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
         logging.FileHandler('streaming_pipeline.log'),
@@ -29,17 +28,18 @@ logger = logging.getLogger(__name__)
 
 class StreamingPipeline:
     def __init__(self, 
-                 api_url="http://localhost:8000",  # Update this to your FastAPI service URL
-                 prediction_interval=0.1,  # 15 minutes in seconds
+                 api_url="http://localhost:8000",
+                 prediction_interval=0.1,
                  data_dir="data/production",
                  results_dir="data/predictions"):
         self.api_url = api_url
         self.prediction_interval = prediction_interval
         self.data_dir = Path(data_dir)
         self.results_dir = Path(results_dir)
+        self.data_dir.mkdir(parents=True, exist_ok=True)
         self.results_dir.mkdir(parents=True, exist_ok=True)
-        
-        # Initialize S3 client for object store access
+
+        # Initialize S3 client
         self.s3_client = boto3.client('s3',
             endpoint_url=os.getenv('S3_ENDPOINT_URL', 'https://chi.tacc.chameleoncloud.org:8080'),
             aws_access_key_id=os.getenv('AWS_ACCESS_KEY_ID'),
@@ -48,32 +48,25 @@ class StreamingPipeline:
         )
         self.bucket_name = "object-persist-project40"
         self.prefix = "nyc_taxi_split/prod"
+        self.predictions_prefix = "predictions"
 
     def download_monthly_data(self, year, month):
-        """Download monthly data using Rclone instead of boto3"""
         filename = f"final_features_{year}_{month:02d}.csv"
         local_path = self.data_dir / filename
-
+        rclone_source = f"chi_tacc:{self.bucket_name}/{self.prefix}/{filename}"
         try:
-            rclone_source = f"chi_tacc:object-persist-project40/nyc_taxi_split/prod/{filename}"
-            local_path.parent.mkdir(parents=True, exist_ok=True)
-            logger.info(f"Downloading {filename} using Rclone from {rclone_source}")
-            
-            exit_code = os.system(f"rclone copy {rclone_source} {local_path.parent}")
-            
-            if exit_code == 0 and local_path.exists():
-                logger.info(f"✅ Successfully downloaded {filename} via Rclone")
+            os.system(f"rclone copy {rclone_source} {self.data_dir}")
+            if local_path.exists():
+                logger.info(f"✅ Successfully downloaded {filename}")
                 return pd.read_csv(local_path)
             else:
-                logger.error(f"❌ Rclone failed with exit code {exit_code}")
+                logger.error(f"❌ Rclone failed: {filename} not found")
                 return None
-
         except Exception as e:
-            logger.error(f"Unexpected error downloading {filename}: {e}")
+            logger.error(f"Error downloading {filename}: {e}")
             return None
 
     def prepare_prediction_request(self, row):
-        """Convert DataFrame row to API request format"""
         return {
             "location_id": int(row["location_id"]),
             "year": int(row["year"]),
@@ -99,81 +92,61 @@ class StreamingPipeline:
             "sknt": float(row["sknt"])
         }
 
-    def save_prediction_result(self, request, prediction, actual):
-        """Save prediction results to file"""
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        result = {
-            "timestamp": timestamp,
-            "request": request,
-            "prediction": prediction,
-            "actual": actual
-        }
-        
-        # Save to daily file
-        date_str = datetime.now().strftime("%Y%m%d")
-        result_file = self.results_dir / f"predictions_{date_str}.jsonl"
-        
-        with open(result_file, "a") as f:
-            f.write(json.dumps(result) + "\n")
-        logger.info(f"Saved prediction result to {result_file}")
-
-    from tqdm import tqdm
-
-    def simulate_streaming(self, df):
-        """Simulate real-time data streaming"""
+    def simulate_streaming(self, df, year, month):
         logger.info(f"🔁 Starting simulation with {len(df)} records")
-
-        for idx, row in tqdm(df.iterrows(), total=len(df), desc="Simulating"):
+        predictions = []
+        for idx, row in tqdm(df.iterrows(), total=len(df), desc=f"Simulating {year}-{month:02d}"):
             try:
-                # Prepare request
                 request_data = self.prepare_prediction_request(row)
-
-                # Send prediction request
-                response = requests.post(
-                    f"{self.api_url}/predict",
-                    json=request_data,
-                    timeout=30
-                )
+                response = requests.post(f"{self.api_url}/predict", json=request_data, timeout=30)
                 response.raise_for_status()
-
-                # Get prediction
                 prediction = response.json()
-
-                # Save results
                 actual = {
                     "pickup_count": float(row.get("pickup_count", 0)),
                     "dropoff_count": float(row.get("dropoff_count", 0))
                 }
-                self.save_prediction_result(request_data, prediction, actual)
-
-                # Delay to simulate stream
+                predictions.append({
+                    "timestamp": datetime.now().strftime("%Y%m%d_%H%M%S"),
+                    "request": request_data,
+                    "prediction": prediction,
+                    "actual": actual
+                })
                 time.sleep(self.prediction_interval)
-
-            except requests.exceptions.RequestException as e:
-                logger.warning(f"⚠️ API error at record {idx}: {e}")
-                continue
             except Exception as e:
-                logger.warning(f"⚠️ Unexpected error at record {idx}: {e}")
+                logger.warning(f"⚠️ Error at record {idx}: {e}")
                 continue
+
+        # Save locally then upload
+        filename = f"predictions_{year}_{month:02d}.jsonl"
+        local_file = self.results_dir / filename
+        with open(local_file, "w") as f:
+            for item in predictions:
+                f.write(json.dumps(item) + "\n")
+        logger.info(f"✅ Saved local prediction results to {local_file}")
+
+        # Upload to object store
+        try:
+            s3_key = f"{self.predictions_prefix}/{filename}"
+            self.s3_client.upload_file(str(local_file), self.bucket_name, s3_key)
+            logger.info(f"☁️ Uploaded predictions to s3://{self.bucket_name}/{s3_key}")
+        except Exception as e:
+            logger.error(f"❌ Failed to upload predictions: {e}")
 
     def run(self, year=2024, month=None):
-        """Run the streaming pipeline for a specific month"""
         if month is None:
             month = datetime.now().month
-            
-        logger.info(f"Starting streaming pipeline for {year}-{month:02d}")
-        
-        # Download and process monthly data
+        logger.info(f"📅 Processing {year}-{month:02d}")
         df = self.download_monthly_data(year, month)
         if df is not None:
-            self.simulate_streaming(df)
+            self.simulate_streaming(df, year, month)
         else:
-            logger.error(f"Failed to process data for {year}-{month:02d}")
+            logger.error(f"❌ No data for {year}-{month:02d}")
 
 if __name__ == "__main__":
-    # Example usage
     pipeline = StreamingPipeline(
-        api_url=os.getenv('API_URL', 'http://localhost:8000'),
-        prediction_interval=0.1  # 15 minutes
+        api_url=os.getenv("API_URL", "http://localhost:8000"),
+        prediction_interval=0.1
     )
-    pipeline.run(year=2024, month=1)  # Process January 2024 data 
+
+    for month in range(1, 13):
+        pipeline.run(year=2024, month=month)
