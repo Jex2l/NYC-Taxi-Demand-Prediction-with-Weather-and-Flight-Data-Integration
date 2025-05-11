@@ -4,22 +4,18 @@ FROM python:3.11-slim
 # Set the working directory
 WORKDIR /app
 
-# Copy the requirements file and install dependencies
+# 1. Copy requirements and install
 COPY fastapi_pt/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy the application code
+# 2. Copy your FastAPI app code
 COPY fastapi_pt/app.py .
 
-# (If you have other modules/packages under fastapi_pt/, uncomment the next line
-#  to bring them in as well)
-# COPY fastapi_pt/ ./ 
+# 3. Copy your trained model
+COPY models/xgb_model_100.pth models/xgb_model_100.pth
 
-# Ensure model file is available inside the container
-COPY models/xgb_model_100.pth
-
-# Expose FastAPI port
+# 4. Expose the port the app will run on
 EXPOSE 8000
 
-# Command to run FastAPI
+# 5. Launch via Uvicorn (ASGI) for FastAPI
 CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8000"]
