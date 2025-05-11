@@ -8,3 +8,5 @@ flask
 pandas 
 joblib
 os
+scikit-learn
+xgboost
