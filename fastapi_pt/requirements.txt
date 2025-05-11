@@ -4,3 +4,7 @@ numpy
 pillow
 torch
 torchvision
+flask 
+pandas 
+joblib
+os
