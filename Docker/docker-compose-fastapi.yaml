@@ -1,0 +1,28 @@
+services:
+  fastapi_server:
+    build:
+      context: ../    # ← points at repo root, so fastapi_pt/ & models/ are visible
+      dockerfile: fastapi_pt/Dockerfile
+    container_name: fastapi_server
+    ports:
+      - "8000:8000"
+
+  jupyter:
+    image: quay.io/jupyter/minimal-notebook:latest
+    container_name: jupyter
+    ports:
+      - "8888:8888"
+    volumes:
+      - ../notebooks:/home/jovyan/work
+    command: >
+      bash -c "pip install --no-cache-dir numpy pandas joblib fastapi uvicorn scikit-learn xgboost && start-notebook.sh"
+
+  flask:
+    build:
+      context: ../
+      dockerfile: fastapi_pt/Dockerfile
+    container_name: flask
+    ports:
+      - "5000:8000"
+    environment:
+      FASTAPI_SERVER_URL: http://fastapi_server:8000

@@ -1,7 +1,6 @@
+fastapi
+uvicorn
 pandas
-pyarrow
-requests
-boto3
-python-swiftclient
-tqdm
-python-dateutil
+joblib
+scikit-learn
+xgboost
