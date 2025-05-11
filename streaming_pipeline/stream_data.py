@@ -28,7 +28,7 @@ logger = logging.getLogger(__name__)
 class StreamingPipeline:
     def __init__(self, 
                  api_url="http://localhost:8000",  # Update this to your FastAPI service URL
-                 prediction_interval=900,  # 15 minutes in seconds
+                 prediction_interval=0.1,  # 15 minutes in seconds
                  data_dir="data/production",
                  results_dir="data/predictions"):
         self.api_url = api_url
