@@ -1,13 +1,11 @@
-version: "3.8"
-
 services:
   fastapi_server:
     build:
-      context: ..                   # repo root, so fastapi_pt/ & models/ are visible
+      context: ../    # ← points at repo root, so fastapi_pt/ & models/ are visible
       dockerfile: fastapi_pt/Dockerfile
     container_name: fastapi_server
     ports:
-      - "8000:8000"                 # FastAPI inference endpoint
+      - "8000:8000"
 
   jupyter:
     image: quay.io/jupyter/minimal-notebook:latest
@@ -21,10 +19,10 @@ services:
 
   flask:
     build:
-      context: ..
+      context: ../
       dockerfile: fastapi_pt/Dockerfile
     container_name: flask
     ports:
-      - "5000:8000"                 # host:5000 → container:8000
+      - "5000:8000"
     environment:
       FASTAPI_SERVER_URL: http://fastapi_server:8000
