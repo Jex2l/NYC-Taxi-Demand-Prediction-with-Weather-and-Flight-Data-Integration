@@ -7,17 +7,8 @@ services:
       context: ./fastapi_pt
       dockerfile: Dockerfile
     container_name: fastapi_server
-    # if you need GPU access for heavier workloads, keep this section;
-    # otherwise you can omit deploy.resources entirely
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: all
-              capabilities: [gpu]
     ports:
-      - "8000:8000"    # exposes your FastAPI (or Flask) inference API
+      - "8000:8000"    # exposes your inference API
 
   jupyter:
     image: quay.io/jupyter/minimal-notebook:latest
@@ -25,7 +16,7 @@ services:
     ports:
       - "8888:8888"
     volumes:
-      - ./workspace:/home/jovyan/work    # mount a local 'workspace/' dir
+      - ./workspace:/home/jovyan/work
     command: >
       bash -c "pip install numpy pandas joblib flask fastapi uvicorn && start-notebook.sh"
 
@@ -35,6 +26,6 @@ services:
       dockerfile: Dockerfile
     container_name: flask
     ports:
-      - "5000:8000"    # maps host:5000 → container:8000 (where app.py listens)
+      - "5000:8000"
     environment:
       FASTAPI_SERVER_URL: http://fastapi_server:8000
