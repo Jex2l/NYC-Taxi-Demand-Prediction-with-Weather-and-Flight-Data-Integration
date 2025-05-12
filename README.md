@@ -26,6 +26,111 @@ An end‑to‑end MLOps pipeline—provision VMs, ingest & ETL data, train model
 9. [🧹 Cleanup](#cleanup)  
 
 ---
+## 🧪 Unit 8: Data Pipeline
+
+This section documents the complete lifecycle of our data handling and transformation processes—from offline batch ingestion to real-time simulation and inference—using a Dockerized ETL pipeline with persistent storage on **Chameleon Cloud**.
+
+---
+
+### 📦 Persistent Storage (Chameleon Volume)
+
+We provisioned a persistent volume via Chameleon Cloud using `python-chi`. This volume is mounted at `/app/data` inside the container and stores:
+
+- Raw data (taxi, flight, weather)
+- Cleaned and engineered features
+- Final merged training files
+- Prediction results
+
+This volume ensures data persistence across container restarts or rebuilds.
+
+---
+
+### 🏗️ Offline ETL Pipeline
+
+Our Docker Compose–based ETL system automates the complete pipeline from raw data ingestion to structured training-ready datasets. All scripts are in the `/scripts` folder.
+
+#### 🔽 1. Raw Data Extraction
+
+**File:** `download_data.py`  
+**Command:** `python3 download_data.py <year> <month>`
+
+This script downloads:
+
+- NYC Yellow and Green Taxi data from TLC
+- Domestic flight performance data from BTS
+- ASOS weather station data from Iowa Mesonet
+
+It saves the cleaned monthly CSVs to `/app/data/taxi`, `/flight`, and `/weather`.
+
+#### 🧹 2. Transformation
+
+Each data domain is cleaned and engineered into structured features:
+
+| Domain  | Script | Description |
+|--------|--------|-------------|
+| **Taxi** | `prepare_taxi_data.py` | Aggregates pickup/dropoff counts at JFK, LGA, and EWR every 15 minutes |
+| **Flight** | `prepare_flight_data.py` | Aggregates flight departures/arrivals at NYC airports with future windows |
+| **Weather** | `prepare_weather_data.py` | Resamples weather readings to 15-minute intervals with forward fill |
+
+Each script outputs features as `*_features_<year>_<month>.csv`.
+
+#### 🔀 3. Feature Merging
+
+**File:** `merge_all_features.py`  
+**Command:** `python3 merge_all_features.py <year> <month>`
+
+This script merges the processed taxi, flight, and weather datasets into a unified training dataset keyed by:
+
+Result is saved in `/app/data/output/final_features_<year>_<month>.csv`.
+
+---
+
+### ☁️ 4. Upload to Object Store
+
+**File:** `upload_to_object_store.py`  
+**Command:** `python3 upload_to_object_store.py <year> <month>`
+
+Uploads merged training files to a remote **Chameleon object store** bucket using `rclone`. Bucket path:  
+`chi_tacc:object-persist-project40/final_features_<year>_<month>.csv`
+
+---
+
+### 🔄 Docker Compose Workflow
+
+**File:** `docker-compose-etl.yml`
+
+Defines 6 services to automate the full ETL:
+
+1. `extract-data`: Runs `download_data.py`
+2. `transform-taxi`: Runs `prepare_taxi_data.py`
+3. `transform-flight`: Runs `prepare_flight_data.py`
+4. `transform-weather`: Runs `prepare_weather_data.py`
+5. `merge-features`: Merges all features into final dataset
+6. `load-data`: Uploads final dataset to object store
+
+Each container shares `/data` and runs in dependency order.
+
+---
+
+### 📡 Online Streaming Inference
+
+**File:** `stream_data.py`
+
+Simulates real-time streaming inference for each 15-min interval using monthly merged feature files.
+
+- Downloads monthly feature files from object store
+- Sends each row to a local ML model API (via HTTP POST)
+- Logs predictions and actuals to JSONL files in `/data/predictions`
+- Uploads results back to object store
+
+---
+
+### 🧰 Requirements
+
+Install all Python dependencies using:
+
+```bash
+pip install -r requirements.txt
 
 ## 1️⃣ Launch & VM Setup
 
