@@ -6,18 +6,7 @@
 
 The business impact is significant i.e. better demand forecasts mean improved rider satisfaction and driver revenue, and city authorities can use these insights for traffic management. We will evaluate our models with Root Mean Square Error as the primary metric, to quantitatively measure prediction accuracy in number of trips. A lower RMSE on held-out data will indicate a better model, and this metric directly ties to business goals by representing how close our predictions are to actual taxi usage. 
 
-**Contributors** 
 
-
-
-|**Name** |**Role** |**Course Unit Focus** |
-| - | - | - |
-|Jeel Patel |**Model Training** |Units 4 & 5 – Model development, feature engineering, and hyperparameter tuning. |
-|Shashank Dugad |**Serving & Monitoring** |Units 6 & 7 – Developing the FastAPI service for model serving, and seting up logging/monitoring. |
-|Amarnadh Reddy |**Data Pipeline** |Unit 8 – Designing and implementing data ingestion and processing pipelines for taxis, weather, flights. |
-|Anshi Shah |**CI/CD & Infrastructure** |Unit 3 – Handling infrastructure-as-code, continuous integration, and deployment automation. |
-
-Note: All team members will collaborate on system integration, testing, and documentation to ensure the components work seamlessly together. 
 
 **System Diagram** 
 
