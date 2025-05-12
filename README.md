@@ -84,6 +84,80 @@ curl -sSL https://get.docker.com/ | sudo sh
 sudo groupadd -f docker
 sudo usermod -aG docker $USER
 ```
+
+Object Storage (MinIO)
+```bash
+curl https://rclone.org/install.sh | sudo bash
+sudo sed -i '/#user_allow_other/s/^#//' /etc/fuse.conf
+
+mkdir -p ~/.config/rclone
+cat <<EOF > ~/.config/rclone/rclone.conf
+[chi_tacc]
+type = swift
+user_id = YOUR_USER_ID
+application_credential_id = APP_CRED_ID
+application_credential_secret = APP_CRED_SECRET
+auth = https://chi.tacc.chameleoncloud.org:5000/v3
+region = CHI@TACC
+EOF
+rclone lsd chi_tacc:
+docker compose -f ~/NYC-Taxi-Demand-Prediction-with-Weather-and-Flight-Data-Integration/Docker/docker-compose-etl.yaml run extract-data
+sudo mkdir /mnt/object
+sudo chown cc:cc /mnt/object
+rclone mount chi_tacc:object-persist-project40 /mnt/object \
+    --read-only --allow-other --daemon
+ls /mnt/object
+```
+ Block Storage & ETL
+ ```bash
+lsblk           # find /dev/vdb
+sudo mkfs.ext4 /dev/vdb1
+sudo mkdir -p /mnt/block
+sudo mount /dev/vdb1 /mnt/block
+sudo chown cc:cc /mnt/block
+df -h           # verify mount at /mnt/block
+HOST_IP=$(curl -s http://169.254.169.254/latest/meta-data/public-ipv4)
+docker compose -f ~/NYC-Taxi-Demand-Prediction-with-Weather-and-Flight-Data-Integration/Docker/docker-compose-block.yml up -d
+http://<HOST_IP>:8888/?token=...
+
+```   
+ Model Training & Offline Eval
+ ```bash
+python3 ~/NYC-Taxi-Demand-Prediction-with-Weather-and-Flight-Data-Integration/scripts/trains.py \
+  --input-dir /mnt/block/data \
+  --output-dir /mnt/block/model_artifacts \
+  --mlflow-uri http://127.0.0.1:8000/
+
+```
+MLflow UI: http://<HOST_IP>:8000
+MinIO UI: http://<HOST_IP>:9001
+```bash
+HOST_IP=$(curl -s http://169.254.169.254/latest/meta-data/public-ipv4)
+docker compose -f ~/NYC-Taxi-Demand-Prediction-with-Weather-and-Flight-Data-Integration/Docker/docker-compose-fastapi.yaml up -d
+docker compose -f ~/NYC-Taxi-Demand-Prediction-with-Weather-and-Flight-Data-Integration/Docker/docker-compose-prometheus.yaml up -d
+```
+Prometheus: http://<HOST_IP>:9090
+FastAPI: http://<HOST_IP>:8000
+
+ Online Streaming Inference
+ ```bash
+python3 ~/NYC-Taxi-Demand-Prediction-with-Weather-and-Flight-Data-Integration/streaming_pipeline/stream_data.py
+```
+This will simulate live data, call /predict, and push results back to object store.
+Airflow Orchestration
+```bash
+HOST_IP=$(curl -s http://169.254.169.254/latest/meta-data/public-ipv4)
+docker compose -f ~/NYC-Taxi-Demand-Prediction-with-Weather-and-Flight-Data-Integration/airflow/docker-compose_airflow.yaml up -d
+```
+
+Airflow UI: http://<HOST_IP>:8080
+
+```bash
+HOST_IP=$(curl -s http://169.254.169.254/latest/meta-data/public-ipv4)
+docker compose -f ~/NYC-Taxi-Demand-Prediction-with-Weather-and-Flight-Data-Integration/Docker/docker-compose-production.yaml up -d
+```
+
+Flask UI: http://<HOST_IP>:5000
 **System Diagram** 
 
 The diagram below shows the end-to-end system architecture, including data sources, the ETL pipeline, the training cluster, model registry, and the serving and monitoring components: 
