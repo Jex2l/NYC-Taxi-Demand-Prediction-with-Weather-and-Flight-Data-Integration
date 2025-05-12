@@ -1,28 +1,26 @@
-{% extends "base.html" %} {% block content %}
-
-<div>
-    <form id="upload-file" method = "POST" enctype="multipart/form-data">
-        <label for="imageUpload" class="btn btn-primary">Upload image</label>
-        <input type="file" name="file" id="imageUpload" accept=".png, .jpg, .jpeg">
-    </form>
-
-
-
-    <div class="image-section" style="display:none;">
-        <div class="img-preview">
-            <div id="imagePreview">
-            </div>
-        </div>
-        <div>
-            <button type="submit" class="btn btn-success" id="btn-predict">Submit</button>
-        </div>
-    </div>
-
-    <div class="loader" style="display:none;"></div>
-
-    <span id="result">
-    </span>
-
-</div>
-
-{% endblock %}
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Taxi Demand Predictor</title>
+</head>
+<body>
+  <h1>NYC Taxi Demand Prediction</h1>
+  <form method="post">
+    Hour (0-23): <input name="hour" required><br>
+    Day of Week (0=Mon): <input name="day_of_week" required><br>
+    Temperature (°F): <input name="temp" required><br>
+    Precipitation (in): <input name="precip" required><br>
+    Flight Arrivals: <input name="flight_arrivals" required><br>
+    <button type="submit">Predict</button>
+  </form>
+  {% if prediction %}
+    {% if prediction.error %}
+      <p style="color:red;">Error: {{ prediction.error }}</p>
+    {% else %}
+      <p>Predicted Demand: {{ prediction.predicted_demand }}</p>
+      <p>Confidence: {{ prediction.confidence }}</p>
+    {% endif %}
+  {% endif %}
+</body>
+</html>
