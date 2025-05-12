@@ -14,3 +14,13 @@ The diagram below shows the end-to-end system architecture, including data sourc
 
 ![title](images/diagram.png)
 
+
+
+Offline evaluation : Docker/Dockerfile.jupyter-onnx-cpu
+Fast api : Docker/docker-compose-fastapi.yaml
+Production : Docker/docker-compose-production.yaml
+Airflow : airflow/docker-compose-airflow.yaml
+fastapi_pt : fastapi_pt/app.py
+flask_app :flask_app/app.py
+Models : models/xgb_model_100.pth
+Mlflow-server : mlflow-server/docker-compose-block.yaml
