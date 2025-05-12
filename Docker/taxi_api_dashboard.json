@@ -1,0 +1,62 @@
+{
+  "annotations": { "list": [] },
+  "editable": true,
+  "gnetId": null,
+  "graphTooltip": 0,
+  "id": null,
+  "iteration": 1625106789369,
+  "links": [],
+  "panels": [
+    {
+      "datasource": "Prometheus",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "id": 1,
+      "targets": [
+        {
+          "expr": "rate(http_requests_total{method=\"POST\",path=\"/predict\"}[1m])",
+          "legendFormat": "{{path}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Request Rate (RPS)",
+      "type": "graph"
+    },
+    {
+      "datasource": "Prometheus",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "id": 2,
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.99, rate(http_request_duration_seconds_bucket{path=\"/predict\"}[5m]))",
+          "legendFormat": "99th %",
+          "refId": "A"
+        }
+      ],
+      "title": "99th‑Percentile Latency (s)",
+      "type": "graph"
+    },
+    {
+      "datasource": "Prometheus",
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 8 },
+      "id": 3,
+      "targets": [
+        {
+          "expr": "rate(http_requests_total{path=\"/predict\",status=~\"4..|5..\"}[1m])",
+          "legendFormat": "Errors",
+          "refId": "A"
+        }
+      ],
+      "title": "Error Rate (Errors/sec)",
+      "type": "graph"
+    }
+  ],
+  "refresh": "5s",
+  "schemaVersion": 27,
+  "style": "dark",
+  "tags": ["taxi_api", "monitoring"],
+  "time": { "from": "now-15m", "to": "now" },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "Taxi API Operational Metrics",
+  "version": 1
+}
