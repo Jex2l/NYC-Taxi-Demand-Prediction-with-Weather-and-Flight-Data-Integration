@@ -13,7 +13,7 @@ app = FastAPI(
 )
 
 # ─── Load the model ───────────────────────────────────────────────────────────
-MODEL_PATH = "models/xgb_model_100.pth"
+MODEL_PATH = "/models/xgb_model_100.pth"
 if not os.path.exists(MODEL_PATH):
     raise FileNotFoundError(f"Model not found at {MODEL_PATH}")
 model = joblib.load(MODEL_PATH)
