@@ -5,20 +5,25 @@ import joblib
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from typing import List
+from prometheus_fastapi_instrumentator import Instrumentator
 
+# ─── App setup ────────────────────────────────────────────────────────────────
 app = FastAPI(
     title="NYC Taxi Demand Prediction API",
-    description="POST JSON to /predict with the features below",
+    description="POST JSON to /predict; /metrics exposed for Prometheus",
     version="1.0.0"
 )
 
-# ─── Load the model ───────────────────────────────────────────────────────────
+# Instrument and expose Prometheus metrics at /metrics
+Instrumentator().instrument(app).expose(app)
+
+# ─── Load the trained model ───────────────────────────────────────────────────
 MODEL_PATH = "models/xgb_model_100.pth"
 if not os.path.exists(MODEL_PATH):
     raise FileNotFoundError(f"Model not found at {MODEL_PATH}")
 model = joblib.load(MODEL_PATH)
 
-# ─── Feature list (exact names from your CSVs minus the two targets) ───────────
+# ─── Feature list (columns from your CSVs minus targets) ──────────────────────
 FEATURE_COLUMNS: List[str] = [
     "location_id", "year", "month", "day", "hour", "minute", "dow",
     "dep_now", "dep_next_30", "dep_next_60", "dep_next_90", "dep_next_120",
@@ -26,7 +31,7 @@ FEATURE_COLUMNS: List[str] = [
     "tmpf", "dwpf", "relh", "feel", "sknt",
 ]
 
-# ─── Request/response schemas ─────────────────────────────────────────────────
+# ─── Pydantic schemas ─────────────────────────────────────────────────────────
 class PredictRequest(BaseModel):
     location_id: int
     year: int
@@ -59,9 +64,10 @@ class PredictResponse(BaseModel):
 @app.get("/", summary="API info")
 def root():
     return {
-        "message": "NYC Taxi Demand Prediction (FastAPI)",
+        "message": "NYC Taxi Demand Prediction Service (FastAPI)",
         "features": FEATURE_COLUMNS,
-        "endpoint": "/predict (POST)"
+        "predict_endpoint": "/predict (POST)",
+        "metrics_endpoint": "/metrics (Prometheus)"
     }
 
 # ─── Prediction endpoint ─────────────────────────────────────────────────────
@@ -78,7 +84,7 @@ def predict(req: PredictRequest):
         dropoff_count=float(dropoff_pred)
     )
 
-# ─── Local debug server ───────────────────────────────────────────────────────
+# ─── Local dev server ─────────────────────────────────────────────────────────
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
