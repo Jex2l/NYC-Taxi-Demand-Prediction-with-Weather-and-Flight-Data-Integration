@@ -13,7 +13,9 @@ The business impact is significant i.e. better demand forecasts mean improved ri
 The diagram below shows the end-to-end system architecture, including data sources, the ETL pipeline, the training cluster, model registry, and the serving and monitoring components: 
 
 ![title](images/diagram.png)
-
+![title](images/IMG_3636.png)
+![title](images/IMG_7317.png)
+![title](images/IMG_9916.png)
 
 
 Offline evaluation : Docker/Dockerfile.jupyter-onnx-cpu
