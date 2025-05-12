@@ -1,0 +1,15 @@
+FROM python:3.9-slim
+
+# Install cron and clean up cache
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    cron \
+ && rm -rf /var/lib/apt/lists/*
+
+# Install Python dependencies
+RUN pip install --no-cache-dir s3fs requests
+
+# Set working directory
+WORKDIR /app
+
+# Entrypoint to cron setup
+ENTRYPOINT ["/bin/bash", "/app/scripts/setup-cron.sh"]
