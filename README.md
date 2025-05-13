@@ -25,24 +25,6 @@ An end‑to‑end MLOps pipeline—provision VMs, ingest & ETL data, train model
 8. [8️⃣ Flask Production Service](#8-flask-production-service)  
 9. [🧹 Cleanup](#cleanup)  
 
----
-+<a name="1-launch--vm-setup"></a>  
- ## 1️⃣ Launch & VM Setup
-
- *Log into your Chameleon…*
-
----  
-+<a name="2-object-storage-minio"></a>  
- ## 2️⃣ Object Storage (MinIO)
-
- *Configure rclone & MinIO…*
-
----  
-+<a name="3-block-storage--etl"></a>  
- ## 3️⃣ Block Storage & ETL
-
- *Format your volume and run your Docker‐Compose…*
-
 
 ---
 ## 🧪 Unit 8: Data Pipeline
