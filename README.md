@@ -26,6 +26,25 @@ An end‑to‑end MLOps pipeline—provision VMs, ingest & ETL data, train model
 9. [🧹 Cleanup](#cleanup)  
 
 ---
++<a name="1-launch--vm-setup"></a>  
+ ## 1️⃣ Launch & VM Setup
+
+ *Log into your Chameleon…*
+
+---  
++<a name="2-object-storage-minio"></a>  
+ ## 2️⃣ Object Storage (MinIO)
+
+ *Configure rclone & MinIO…*
+
+---  
++<a name="3-block-storage--etl"></a>  
+ ## 3️⃣ Block Storage & ETL
+
+ *Format your volume and run your Docker‐Compose…*
+
+
+---
 ## 🧪 Unit 8: Data Pipeline
 
 This section documents the complete lifecycle of our data handling and transformation processes—from offline batch ingestion to real-time simulation and inference—using a Dockerized ETL pipeline with persistent storage on **Chameleon Cloud**.
