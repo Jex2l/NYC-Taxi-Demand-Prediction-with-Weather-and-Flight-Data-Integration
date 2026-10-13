@@ -1,53 +1,19 @@
-$(document).ready(function () {
-    // Init
-    $('.image-section').hide();
-    $('.loader').hide();
-    $('#result').hide();
+// NYC Taxi Demand Predictor — presentation-only UI behavior.
+// The form still does a normal POST to the Flask route (app.py is untouched);
+// this just gives the button a loading state while the page round-trips.
+document.addEventListener('DOMContentLoaded', function () {
+    var form = document.getElementById('predict-form');
+    var btn = document.getElementById('btn-predict');
 
-    // Upload Preview
-    function readURL(input) {
-        if (input.files && input.files[0]) {
-            var reader = new FileReader();
-            reader.onload = function (e) {
-                $('#imagePreview').css('background-image', 'url(' + e.target.result + ')');
-                $('#imagePreview').hide();
-                $('#imagePreview').fadeIn(650);
-            }
-            reader.readAsDataURL(input.files[0]);
-        }
+    if (!form || !btn) {
+        return;
     }
-    $("#imageUpload").change(function () {
-        $('.image-section').show();
-        $('#btn-predict').show();
-        $('#result').text('');
-        $('#result').hide();
-        readURL(this);
+
+    form.addEventListener('submit', function () {
+        if (typeof form.reportValidity === 'function' && !form.reportValidity()) {
+            return;
+        }
+        btn.classList.add('is-loading');
+        btn.querySelector('.btn-label').textContent = 'Predicting…';
     });
-
-    // Predict
-    $('#btn-predict').click(function () {
-        var form_data = new FormData($('#upload-file')[0]);
-
-        // Show loading animation
-        $(this).hide();
-        $('.loader').show();
-
-        // Make prediction by calling api /predict
-        $.ajax({
-            type: 'POST',
-            url: '/predict',
-            data: form_data,
-            contentType: false,
-            cache: false,
-            processData: false,
-            async: true,
-            success: function (data) {
-                // Get and display the result
-                $('.loader').hide();
-	        $('#result').fadeIn(600);
-                $('#result').html(data);
-            },
-        });
-    });
-
 });

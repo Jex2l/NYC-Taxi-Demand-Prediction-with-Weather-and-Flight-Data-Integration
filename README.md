@@ -15,16 +15,35 @@ An end‑to‑end MLOps pipeline—provision VMs, ingest & ETL data, train model
 
 ## Table of Contents
 
-1. [1️⃣ Launch & VM Setup](#1-launch--vm-setup)  
-2. [2️⃣ Object Storage (MinIO)](#2-object-storage-minio)  
-3. [3️⃣ Block Storage & ETL](#3-block-storage--etl)  
-4. [4️⃣ Model Training & Offline Eval](#4-model-training--offline-eval)  
-5. [5️⃣ FastAPI Inference & Metrics](#5-fastapi-inference--metrics)  
-6. [6️⃣ Online Streaming Inference](#6-online-streaming-inference)  
-7. [7️⃣ Airflow Orchestration](#7-airflow-orchestration)  
-8. [8️⃣ Flask Production Service](#8-flask-production-service)  
-9. [🧹 Cleanup](#cleanup)  
+0. [🗂️ Project Structure](#️-project-structure)
+1. [🧪 Data Pipeline Overview](#-unit-8-data-pipeline)
+2. [1️⃣ Launch & VM Setup](#1-launch--vm-setup)  
+3. [2️⃣ Object Storage (MinIO)](#2-object-storage-minio)  
+4. [3️⃣ Block Storage & ETL](#3-block-storage--etl)  
+5. [4️⃣ Model Training & Offline Eval](#4-model-training--offline-eval)  
+6. [5️⃣ FastAPI Inference & Metrics](#5-fastapi-inference--metrics)  
+7. [6️⃣ Online Streaming Inference](#6-online-streaming-inference)  
+8. [7️⃣ Airflow Orchestration](#7-airflow-orchestration)  
+9. [8️⃣ Flask Production Service](#8-flask-production-service)  
+10. [🧹 Cleanup](#-cleanup)  
 
+---
+
+## 🗂️ Project Structure
+
+| Path | Contents |
+|------|----------|
+| `Docker/` | Dockerfiles and `docker-compose` definitions for every stage of the pipeline — ETL (`docker-compose-etl.yml`), block-storage Jupyter (`Dockerfile.jupyter-onnx-cpu/gpu`), FastAPI serving (`docker-compose-fastapi.yaml`), Prometheus (`docker-compose-prometheus.yaml`, `prometheus.yml`), and the production Flask service (`docker-compose-production.yaml`). Also holds CI/build/promote workflow configs (`build-container-image.yaml`, `promote-model.yaml`, `train-model.yaml`) and the Grafana dashboard definition `taxi_api_dashboard.json`. |
+| `airflow/` | `docker-compose-airflow.yaml` plus the DAGs in `airflow/dags/` (`sample_for_labeling_dag.py`, `retrain_model_dag.py`, `predict_dag.py`, `fetch_labeled_and_evaluate_dag.py`) that schedule retraining and evaluation. |
+| `ansible/` | Playbooks for provisioning and app delivery: `general/`, `pre_k8s/`, `k8s/` (Kubespray-based cluster bring-up), `post_k8s/`, and `argocd/` (ArgoCD app-of-apps for staging/canary/production/platform). |
+| `k8s/` | Helm charts for the `staging`, `canary`, `production`, and `platform` deployments (each with `Chart.yaml`, `templates/`, `values.yaml`). |
+| `fastapi_pt/` | The FastAPI inference service (`app.py`, `Dockerfile`, `requirements.txt`) that serves model predictions and exposes metrics. |
+| `flask_app/` | The Flask production-facing demand-prediction UI (`app.py`, `templates/`, `static/`) used in the [Flask Production Service](#8-flask-production-service) step. |
+| `streaming_pipeline/` | `stream_data.py`, which simulates real-time streaming inference against the deployed API. |
+| `mlflow-server/` | `docker-compose.yml` / `docker-compose-block.yaml` for standing up the MLflow tracking server used during training. |
+| `notebooks/` | Jupyter notebooks for model-serving experiments (`model_serving_xgb.ipynb`, `model_serving_rf.ipynb`) and Chameleon server creation (`create_server.ipynb`). |
+
+Other top-level items: `tf/kvm` (Terraform for Chameleon KVM infra), `models/` and `flask_app/xgb_model_100.pth` (trained model artifacts), `data/taxi_zones.geojson` (reference geo data), and `run_etl.sh` (convenience wrapper for the ETL compose stack).
 
 ---
 ## 🧪 Unit 8: Data Pipeline
@@ -191,7 +210,7 @@ sudo groupadd -f docker
 sudo usermod -aG docker $USER
 ```
 
-Object Storage (MinIO)
+## 2️⃣ Object Storage (MinIO)
 ```bash
 curl https://rclone.org/install.sh | sudo bash
 sudo sed -i '/#user_allow_other/s/^#//' /etc/fuse.conf
@@ -214,7 +233,7 @@ rclone mount chi_tacc:object-persist-project40 /mnt/object \
     --read-only --allow-other --daemon
 ls /mnt/object
 ```
- Block Storage & ETL
+## 3️⃣ Block Storage & ETL
  ```bash
 lsblk           # find /dev/vdb
 sudo mkfs.ext4 /dev/vdb1
@@ -227,7 +246,7 @@ docker compose -f ~/NYC-Taxi-Demand-Prediction-with-Weather-and-Flight-Data-Inte
 http://<HOST_IP>:8888/?token=...
 
 ```   
- Model Training & Offline Eval
+## 4️⃣ Model Training & Offline Eval
  ```bash
 python3 ~/NYC-Taxi-Demand-Prediction-with-Weather-and-Flight-Data-Integration/scripts/trains.py \
   --input-dir /mnt/block/data \
@@ -237,6 +256,8 @@ python3 ~/NYC-Taxi-Demand-Prediction-with-Weather-and-Flight-Data-Integration/sc
 ```
 MLflow UI: http://<HOST_IP>:8000
 MinIO UI: http://<HOST_IP>:9001
+
+## 5️⃣ FastAPI Inference & Metrics
 ```bash
 HOST_IP=$(curl -s http://169.254.169.254/latest/meta-data/public-ipv4)
 docker compose -f ~/NYC-Taxi-Demand-Prediction-with-Weather-and-Flight-Data-Integration/Docker/docker-compose-fastapi.yaml up -d
@@ -245,12 +266,13 @@ docker compose -f ~/NYC-Taxi-Demand-Prediction-with-Weather-and-Flight-Data-Inte
 Prometheus: http://<HOST_IP>:9090
 FastAPI: http://<HOST_IP>:8000
 
- Online Streaming Inference
+## 6️⃣ Online Streaming Inference
  ```bash
 python3 ~/NYC-Taxi-Demand-Prediction-with-Weather-and-Flight-Data-Integration/streaming_pipeline/stream_data.py
 ```
 This will simulate live data, call /predict, and push results back to object store.
-Airflow Orchestration
+
+## 7️⃣ Airflow Orchestration
 ```bash
 HOST_IP=$(curl -s http://169.254.169.254/latest/meta-data/public-ipv4)
 docker compose -f ~/NYC-Taxi-Demand-Prediction-with-Weather-and-Flight-Data-Integration/airflow/docker-compose_airflow.yaml up -d
@@ -258,21 +280,57 @@ docker compose -f ~/NYC-Taxi-Demand-Prediction-with-Weather-and-Flight-Data-Inte
 
 Airflow UI: http://<HOST_IP>:8080
 
+## 8️⃣ Flask Production Service
 ```bash
 HOST_IP=$(curl -s http://169.254.169.254/latest/meta-data/public-ipv4)
 docker compose -f ~/NYC-Taxi-Demand-Prediction-with-Weather-and-Flight-Data-Integration/Docker/docker-compose-production.yaml up -d
 ```
 
 Flask UI: http://<HOST_IP>:5000
+
 **System Diagram** 
 
 The diagram below shows the end-to-end system architecture, including data sources, the ETL pipeline, the training cluster, model registry, and the serving and monitoring components: 
 
-![title](images/diagram.png)
-![title](images/IMG_3636.png)
-![title](images/IMG_7317.png)
-![title](images/IMG_9916.png)
+![End-to-end system architecture: data sources, ETL, Ray training cluster, MLflow registry, FastAPI serving, and monitoring](images/diagram.png)
+![Pipeline screenshot 1](images/IMG_3636.png)
+![Pipeline screenshot 2](images/IMG_7317.png)
+![Pipeline screenshot 3](images/IMG_9916.png)
 
+## 🧹 Cleanup
+
+When you're done, tear resources down in reverse order to avoid orphaned cloud charges:
+
+```bash
+# Stop the application stacks (run on the VM, from the repo root)
+docker compose -f Docker/docker-compose-production.yaml down
+docker compose -f airflow/docker-compose-airflow.yaml down
+docker compose -f Docker/docker-compose-prometheus.yaml down
+docker compose -f Docker/docker-compose-fastapi.yaml down
+docker compose -f Docker/docker-compose-block.yml down
+docker compose -f Docker/docker-compose-etl.yml down
+
+# Unmount the object-store bucket
+sudo umount /mnt/object
+
+# Unmount block storage
+sudo umount /mnt/block
+```
+
+```python
+# From the same Chameleon JupyterLab session used in step 1️⃣, release the VM and its floating IP
+from chi import server, context
+context.version = "1.0"
+context.choose_project()
+context.choose_site(default="KVM@TACC")
+
+s = server.get_server(f"node-persist-{username}")
+s.delete()
+```
+
+Also delete any block/object storage volumes you provisioned separately if they're no longer needed, to stop Chameleon lease charges.
+
+---
 
 - **Offline evaluation**: [Dockerfile.jupyter-onnx-cpu](Docker/Dockerfile.jupyter-onnx-cpu)  
 - **FastAPI**: [docker-compose-fastapi.yaml](Docker/docker-compose-fastapi.yaml)  
